@@ -26,7 +26,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Rusty Bank", "babu77", "1.1.0")]
+    [Info("Rusty Bank", "babu77", "1.1.1")]
     [Description("This is a simple plugin that adds banking functionality.")]
     public class RustyBank : RustPlugin
     {
@@ -213,7 +213,8 @@ namespace Oxide.Plugins
                 {"TimeoutAddMode", "Additional mode timed out."},
                 {"TimeoutRemoveMode", "Remove mode timed out."},
                 {"MultiplePlayers", "Multiple players found."},
-                {"NumericError", "Non-numeric input."}
+                {"NumericError", "Non-numeric input."},
+                {"NumericalIntegrityError", "Must be greater than 0."}
             }, this);
         }
 
@@ -1211,6 +1212,14 @@ namespace Oxide.Plugins
             AddUiPanel(player, NameLabelUiName);
             AddUiPanel(player, OpMenuUiName);
         }
+        
+        private void CommandBankUiFromDW(BasePlayer player)
+        {
+            FuncDestroyUi(player);
+            RustyBankUiCrate(player);
+
+            return;
+        }
         #endregion
 
         #region Commands
@@ -1317,7 +1326,7 @@ namespace Oxide.Plugins
         {
             var player = args.Connection.player as BasePlayer;
             FuncDestroyUi(player);
-            CommandBankUi(player);
+            CommandBankUiFromDW(player);
         }
 
         /// <summary>
@@ -1351,6 +1360,12 @@ namespace Oxide.Plugins
                 if (!UseHasPerm(player))
                 {
                     CreateFadeUI(player, lang.GetMessage("NoPerm", this));
+                    return;
+                }
+
+                if (depositAmount <= 0)
+                {
+                    CreateFadeUI(player, lang.GetMessage("NumericalIntegrityError", this));
                     return;
                 }
 
@@ -1419,7 +1434,7 @@ namespace Oxide.Plugins
                 //
             }
             //UpdateSubUi(player);
-            CommandBankUi(player);
+            CommandBankUiFromDW(player);
         }
         
         /// <summary>
@@ -1442,6 +1457,12 @@ namespace Oxide.Plugins
                 if (!UseHasPerm(player))
                 {
                     CreateFadeUI(player, lang.GetMessage("NoPerm", this));
+                    return;
+                }
+                
+                if (withdrawAmount <= 0)
+                {
+                    CreateFadeUI(player, lang.GetMessage("NumericalIntegrityError", this));
                     return;
                 }
 
@@ -1498,7 +1519,7 @@ namespace Oxide.Plugins
                 //
             }
             //UpdateSubUi(player);
-            CommandBankUi(player);
+            CommandBankUiFromDW(player);
         }
 
         [ConsoleCommand("rustybank.createaccount")]
@@ -1623,6 +1644,12 @@ namespace Oxide.Plugins
             if (!int.TryParse(arg.Args[1], out amount))
             {
                 CreateFadeUI(player, lang.GetMessage("NumericError", this));
+                return;
+            }
+            
+            if (amount <= 0)
+            {
+                CreateFadeUI(player, lang.GetMessage("NumericalIntegrityError", this));
                 return;
             }
 
