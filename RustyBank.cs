@@ -16,7 +16,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Rusty Bank", "babu77", "1.0.0")]
+    [Info("Rusty Bank", "babu77", "1.0.1")]
     [Description("A simple plugin to introduce the bank.")]
     public class RustyBank : RustPlugin
     {
@@ -245,6 +245,7 @@ namespace Oxide.Plugins
         {
             SaveRbData();
         }
+        
         private void OnServerShutdown() => OnServerSave();
 
         private void Unload()
@@ -579,7 +580,7 @@ namespace Oxide.Plugins
             RemoveUiPanel(player, SubUiName);
         }
         
-        private void DestroyExtentionSubUi(BasePlayer player)
+        private void DestroyExtensionSubUi(BasePlayer player)
         {
             CuiHelper.DestroyUi(player, ExtensionSubUiName);
             RemoveUiPanel(player, ExtensionSubUiName);
@@ -666,7 +667,7 @@ namespace Oxide.Plugins
         {
             var cost = amount * Configs.ExtensionFee;
             //拡張容量確認
-            PlayerData playerData = new PlayerData();
+            var playerData = new PlayerData();
             if (!_dataPlayerRb.TryGetValue(player.userID, out playerData))
             {
                 return;
@@ -686,12 +687,9 @@ namespace Oxide.Plugins
             {
                 return;
             }
-            
-            
+
             //拡張
             playerData.Extension += amount;
-            
-
 
             //支払い
             try
@@ -1260,7 +1258,6 @@ namespace Oxide.Plugins
             CreateRustyBankMenu(player);
         }
         
-        //TODO: 口座OR手持ちから購入
         [ConsoleCommand("rustybank.addbankextension")]
         private void RustyBankAddBankExtension(ConsoleSystem.Arg args)
         {
@@ -1690,7 +1687,7 @@ namespace Oxide.Plugins
             var maxDepositBalance = GetMaxDepositBalance(player);
             if (IsUiPanelOpened(player, ExtensionSubUiName))
             {
-                DestroyExtentionSubUi(player);
+                DestroyExtensionSubUi(player);
             }
             //SubUI
             var subUiElement = UI.CreateElementContainer(ExtensionSubUiName, UI.Color("#000000", (float)0.0), "0.01 0.55", "0.99 0.65");
