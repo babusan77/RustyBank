@@ -1298,8 +1298,6 @@ namespace Oxide.Plugins
         /// メインUI起動コマンド
         /// </summary>
         /// <param name="player"></param>
-        /// <param name="command"></param>
-        /// <param name="args"></param>
         [ChatCommand("bankui")]
         private void CommandBankUi(BasePlayer player)
         {
