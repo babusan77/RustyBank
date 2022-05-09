@@ -1,23 +1,33 @@
-﻿using System;
+﻿/*  更新履歴
+ *
+ * 0.2.0
+ *	 初期リリース()
+ * 
+ * 1.0.0
+ *	 預金枠拡張機能追加
+ *　
+ * 1.0.1
+ *	 Typo修正 
+ */
+
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using Facepunch.Models.Database;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 using Oxide.Core;
 using Oxide.Core.Configuration;
-using Oxide.Core.Database;
 using Oxide.Core.Plugins;
 using Oxide.Game.Rust.Cui;
 using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Rusty Bank", "babu77", "1.0.1")]
-    [Description("A simple plugin to introduce the bank.")]
+    [Info("Rusty Bank", "babu77", "1.1.0")]
+    [Description("This is a simple plugin that adds banking functionality.")]
     public class RustyBank : RustPlugin
     {
         #region Definitions(Global)
@@ -27,11 +37,12 @@ namespace Oxide.Plugins
         private const string PermVip2 = "rustybank.vip2";
         private const string PermVip3 = "rustybank.vip3";
         private const string PermAdmin = "rustybank.admin";
-       // private const string AdminUiName = "RustyBankAdminUI";
         private const string ExtensionUiName = "RustyBankUIExtension";
         private const string ExtensionItemUiName = "RustyBankUIExtensionItem_";
         private const string MainUiName = "RustyBankUIMain";
         private const string SubUiName = "RustyBankUISub";
+        private const string OpMenuUiName = "RustyBankUIOpMenu";
+        private const string DaWUiName = "RustyBankDaWUi";
         private const string ExtensionSubUiName = "RustyBankUIExtensionSub";
         private const string FadeUiName = "RustyBankUIFade";
         private const string NameLabelUiName = "RustyBankUINameLabel";
@@ -54,6 +65,9 @@ namespace Oxide.Plugins
 
         #region Classes
 
+        /// <summary>
+        /// プレイヤーデータファイル用
+        /// </summary>
         private class PlayerData
         {
             public string DisplayName { get; set; }
@@ -61,58 +75,52 @@ namespace Oxide.Plugins
             public int Extension { get; set; }
         }
 
+        /// <summary>
+        /// コンフィグ用
+        /// </summary>
         private class Configurations
         {
             //public bool UseEconomics { get; set; }
-            //public DbConnection MySqlConnection { get; set; }
             public bool IsOnlyUi { get; set; }
             public bool IsExtension { get; set; }
             public double ExtensionFee { get; set; }
             public double ExtensionAmount { get; set; }
             public double ExtensionLimit { get; set; }
             public bool ShowVersion { get; set; }
-            public UserConfigs Admin { get; set; }
-            public UserConfigs Default { get; set; }
-            public UserConfigs Vip1 { get; set; }
-            public UserConfigs Vip2 { get; set; }
-            public UserConfigs Vip3 { get; set; }
+            public float DistanceFromNpc { get; set; }
+            public int TransactExpirationTime { get; set; }
+            public AuthorityConfigs Admin { get; set; }
+            public AuthorityConfigs Default { get; set; }
+            public AuthorityConfigs Vip1 { get; set; }
+            public AuthorityConfigs Vip2 { get; set; }
+            public AuthorityConfigs Vip3 { get; set; }
             
 
             public Configurations()
             {
-                //this.MySqlConnection = new DbConnection();
-                this.Default = new UserConfigs();
-                this.Admin = new UserConfigs();
-                this.Vip1 = new UserConfigs();
-                this.Vip2 = new UserConfigs();
-                this.Vip3 = new UserConfigs();
+                this.Default = new AuthorityConfigs();
+                this.Admin = new AuthorityConfigs();
+                this.Vip1 = new AuthorityConfigs();
+                this.Vip2 = new AuthorityConfigs();
+                this.Vip3 = new AuthorityConfigs();
             }
         }
 
-        private class UserConfigs
+        /// <summary>
+        /// 権限別コンフィグ
+        /// </summary>
+        private class AuthorityConfigs
         {
             public double MaxDepositBalance { get; set; }
             public bool IsFee { get; set; }
             public double Fee { get; set; }
         }
-
-        private class DbConnection
-        {
-            public string Address { get; set; }
-            public int Port { get; set; }
-            public string DbName { get; set; }
-            public string UserName { get; set; }
-            public string Password { get; set; }
-        }
         #endregion
 
         #region Configurations
-        //private bool Changed;
-        //
         private void LoadVariables()
         {
             //Global setting
-            //Configs.UseEconomics = Convert.ToBoolean(GetConfig("00_Global", "Use_Economics", false));
             Configs.IsOnlyUi = Convert.ToBoolean(GetConfig("00_Global", "Use_Only_UI", false));
             
             Configs.IsExtension = Convert.ToBoolean(GetConfig("00_Global", "Extension_Enable", false));
@@ -124,48 +132,35 @@ namespace Oxide.Plugins
             Configs.ExtensionLimit = Convert.ToDouble(GetConfig("00_Global", "Extension_Limit", 500000.0));
 
             Configs.ShowVersion = Convert.ToBoolean(GetConfig("00_Global", "Show_Version", true));
-
-            //MysqlConnection
-            // Configs.MySqlConnection.Address = Convert.ToString(GetConfig("01_MySql", "Address", "localhost"));
-            // Configs.MySqlConnection.Port = Convert.ToInt32(GetConfig("01_MySql", "Port", 3306));
-            // Configs.MySqlConnection.DbName = Convert.ToString(GetConfig("01_MySql", "DataBase", "DB_RustyBank"));
-            // Configs.MySqlConnection.UserName = Convert.ToString(GetConfig("01_MySql", "UserName", "RustyBank"));
-            // Configs.MySqlConnection.Password = Convert.ToString(GetConfig("01_MySql", "Password", "password"));
+            
+            Configs.DistanceFromNpc = Convert.ToSingle(GetConfig("00_Global", "Distance_From_Npc", 5f));
+            
+            Configs.TransactExpirationTime = Convert.ToInt32(GetConfig("00_Global", "TransactExpirationTime", 5));
 
             //Admin
             Configs.Admin.MaxDepositBalance = Convert.ToDouble(GetConfig("10_Admin", "Max_Deposit_Balance", 300000));
             Configs.Admin.IsFee = Convert.ToBoolean(GetConfig("10_Admin", "Use_Fee", true));
-            //Configs.Admin.FeeType = Convert.ToInt32(GetConfig("10_Admin", "Fee_Type(0: Amount, 1: Percentage(0-100))", 0));
             Configs.Admin.Fee = Convert.ToDouble(GetConfig("10_Admin", "Fee", 200));
-            //Configs.Admin.FeeInterval = Convert.ToSingle(GetConfig("10_Admin", "Fee_Interval", 3600));
 
             //Default
             Configs.Default.MaxDepositBalance = Convert.ToDouble(GetConfig("11_Default", "Max_Deposit_Balance", 150000));
             Configs.Default.IsFee = Convert.ToBoolean(GetConfig("11_Default", "Use_Fee", true));
-            //Configs.Default.FeeType = Convert.ToInt32(GetConfig("11_Default", "Fee_Type(0: Amount, 1: Percentage(0-100))", 0));
             Configs.Default.Fee = Convert.ToDouble(GetConfig("11_Default", "Fee", 300));
-            //Configs.Default.FeeInterval = Convert.ToSingle(GetConfig("11_Default", "Fee_Interval", 3600));
 
             //Vip1
             Configs.Vip1.MaxDepositBalance = Convert.ToDouble(GetConfig("12_Vip1", "Max_Deposit_Balance", 200000));
             Configs.Vip1.IsFee = Convert.ToBoolean(GetConfig("12_Vip1", "Use_Fee", true));
-            //Configs.Vip1.FeeType = Convert.ToInt32(GetConfig("12_Vip1", "Fee_Type(0: Amount, 1: Percentage(0-100))", 0));
             Configs.Vip1.Fee = Convert.ToDouble(GetConfig("12_Vip1", "Fee", 250));
-            //Configs.Vip1.FeeInterval = Convert.ToSingle(GetConfig("12_Vip1", "Fee_Interval", 3600));
-            
+
             //Vip2
             Configs.Vip2.MaxDepositBalance = Convert.ToDouble(GetConfig("13_Vip2", "Max_Deposit_Balance", 250000));
             Configs.Vip2.IsFee = Convert.ToBoolean(GetConfig("13_Vip2", "Use_Fee", true));
-            //Configs.Vip2.FeeType = Convert.ToInt32(GetConfig("13_Vip2", "Fee_Type(0: Amount, 1: Percentage(0-100))", 0));
             Configs.Vip2.Fee = Convert.ToDouble(GetConfig("13_Vip2", "Fee", 230));
-            //Configs.Vip2.FeeInterval = Convert.ToSingle(GetConfig("13_Vip2", "Fee_Interval", 3600));
-            
+
             //Vip3
             Configs.Vip3.MaxDepositBalance = Convert.ToDouble(GetConfig("14_Vip3", "Max_Deposit_Balance", 300000));
             Configs.Vip3.IsFee = Convert.ToBoolean(GetConfig("14_Vip3", "Use_Fee", true));
-            //Configs.Vip3.FeeType = Convert.ToInt32(GetConfig("14_Vip3", "Fee_Type(0: Amount, 1: Percentage(0-100))", 0));
             Configs.Vip3.Fee = Convert.ToDouble(GetConfig("14_Vip3", "Fee", 200));
-            //Configs.Vip3.FeeInterval = Convert.ToSingle(GetConfig("14_Vip3", "Fee_Interval", 3600));
         }
 
         private object GetConfig(string menu, string dataValue, object defaultValue)
@@ -175,14 +170,12 @@ namespace Oxide.Plugins
             {
                 data = new Dictionary<string, object>();
                 Config[menu] = data;
-                //Changed = true;
             }
             object value;
             if (!data.TryGetValue(dataValue, out value))
             {
                 value = defaultValue;
                 data[dataValue] = value;
-                //Changed = true;
             }
             return value;
         }
@@ -193,6 +186,10 @@ namespace Oxide.Plugins
         #endregion
 
         #region Hooks
+        
+        /// <summary>
+        /// Oxide Initialize
+        /// </summary>
         private void Init()
         {
             lang.RegisterMessages(new Dictionary<string, string>
@@ -216,15 +213,22 @@ namespace Oxide.Plugins
                 {"TimeoutAddMode", "Additional mode timed out."},
                 {"TimeoutRemoveMode", "Remove mode timed out."},
                 {"MultiplePlayers", "Multiple players found."},
+                {"NumericError", "Non-numeric input."}
             }, this);
         }
 
+        /// <summary>
+        /// ロードデフォルトコンフィグ
+        /// </summary>
         protected override void LoadDefaultConfig()
         {
             Config.Clear();
             LoadVariables();
         }
 
+        /// <summary>
+        /// Oxide Loaded
+        /// </summary>
         private void Loaded()
         {
             permission.RegisterPermission(PermAdmin, this);
@@ -241,6 +245,10 @@ namespace Oxide.Plugins
 
             RbLoadConfig();
         }
+        
+        /// <summary>
+        /// Oxide OnServerSave
+        /// </summary>
         private void OnServerSave()
         {
             SaveRbData();
@@ -248,6 +256,9 @@ namespace Oxide.Plugins
         
         private void OnServerShutdown() => OnServerSave();
 
+        /// <summary>
+        /// Oxide Unload
+        /// </summary>
         private void Unload()
         {
             if (!Interface.Oxide.IsShuttingDown)
@@ -258,24 +269,9 @@ namespace Oxide.Plugins
                     {
                         continue;
                     }
-
-                    List<string> uiList;
-                    if (OpenUiPanel.TryGetValue(player.userID, out uiList))
-                    {
-                        foreach (var uiName in uiList)
-                        {
-                            switch (uiName)
-                            {
-                                case MainUiName:
-                                    CuiHelper.DestroyUi(player, MainUiName);
-                                    break;
-                                case SubUiName:
-                                    CuiHelper.DestroyUi(player, SubUiName);
-                                    break;
-                            }
-                        }
-                    }
+                    
                     DestroyEntries(player);
+                    FuncDestroyUi(player);
                 }
             }
             OnServerSave();
@@ -325,7 +321,7 @@ namespace Oxide.Plugins
             {
                 if (_dataNpc.Contains(npc.userID))
                 {
-                    RustyBankUiCrate(player);
+                    RustyBankUiCrate(player, npc);
                 }
             }
         }
@@ -345,11 +341,6 @@ namespace Oxide.Plugins
                 _rbNpcDataFile.WriteObject(_dataNpc);
             }
         }
-
-        //private void OnNewSave()
-        //{
-        //   // DATA_PLAYER_LOST_CR.Clear();
-        //}
 
         private DynamicConfigFile GetFile(string name)
         {
@@ -467,7 +458,7 @@ namespace Oxide.Plugins
         {
             var balance = 0.0;
 
-            PlayerData playerData = new PlayerData();
+            PlayerData playerData;
             if (!_dataPlayerRb.TryGetValue(player.userID, out playerData))
             {
                 return balance;
@@ -533,22 +524,21 @@ namespace Oxide.Plugins
             CuiHelper.DestroyUi(player, DepositUiName);
             CuiHelper.DestroyUi(player, WithdrawUiName);
             CuiHelper.DestroyUi(player, ShopUiName);
-            //CuiHelper.DestroyUi(player, ExtensionUiName);
-            //CuiHelper.DestroyUi(player, AdminUiName);
-            //RemoveUiPanel(player, AdminUiName);
+            CuiHelper.DestroyUi(player, OpMenuUiName);
+            CuiHelper.DestroyUi(player, DaWUiName);
             RemoveUiPanel(player, MainUiName);
             RemoveUiPanel(player, NameLabelUiName);
             RemoveUiPanel(player, DepositUiName);
             RemoveUiPanel(player, WithdrawUiName);
             RemoveUiPanel(player, ShopUiName);
-            //RemoveUiPanel(player, ExtensionUiName);
-            //CuiHelper.DestroyUi(player, "db");
-            //DestroyEntries(player);
+            RemoveUiPanel(player, OpMenuUiName);
+            RemoveUiPanel(player, DaWUiName);
+            
             FuncDestroyExtensionUi(player);
         }
         
         /// <summary>
-        /// 拡張用UI削除
+        /// 拡張用UI削除(実行様)
         /// </summary>
         /// <param name="player"></param>
         /// <param name="itemCounter"></param>
@@ -566,26 +556,31 @@ namespace Oxide.Plugins
                 RemoveUiPanel(player, $"{ExtensionItemUiName}{i}");
             }
         }
-        
-        //private void DestroySubUI(ConsoleSystem.Arg args)
-        //{
-        //    var player = args.Connection.player as BasePlayer;
-        //    CuiHelper.DestroyUi(player, _SubUiName);
-        //    RemoveUiPanel(player, _SubUiName);
-        //}
 
+        /// <summary>
+        /// サブUI削除
+        /// </summary>
+        /// <param name="player"></param>
         private void DestroySubUi(BasePlayer player)
         {
             CuiHelper.DestroyUi(player, SubUiName);
             RemoveUiPanel(player, SubUiName);
         }
         
+        /// <summary>
+        /// 拡張用UI削除
+        /// </summary>
+        /// <param name="player"></param>
         private void DestroyExtensionSubUi(BasePlayer player)
         {
             CuiHelper.DestroyUi(player, ExtensionSubUiName);
             RemoveUiPanel(player, ExtensionSubUiName);
         }
 
+        /// <summary>
+        /// フェードUI
+        /// </summary>
+        /// <param name="player"></param>
         private void DestroyFadeUi(BasePlayer player)
         {
             CuiHelper.DestroyUi(player, FadeUiName);
@@ -596,57 +591,14 @@ namespace Oxide.Plugins
         /// UI表示(条件分岐)
         /// </summary>
         /// <param name="player"></param>
-        private void RustyBankUiCrate(BasePlayer player)
+        /// <param name="npc"></param>
+        private void RustyBankUiCrate(BasePlayer player, BasePlayer npc = null)
         {
-            if (permission.UserHasPermission(player.UserIDString, PermAdmin))
+            if (UseHasPerm(player))
             {
                 if (ExistsAccount(player))
                 {
-                    CreateRustyBankMenu(player);
-                }
-                else
-                {
-                    CreateBlankAccountMenu(player);
-                }
-            }
-            else if(permission.UserHasPermission(player.UserIDString, PermVip1))
-            {
-                if (ExistsAccount(player))
-                {
-                    CreateRustyBankMenu(player);
-                }
-                else
-                {
-                    CreateBlankAccountMenu(player);
-                }
-            }
-            else if(permission.UserHasPermission(player.UserIDString, PermVip2))
-            {
-                if (ExistsAccount(player))
-                {
-                    CreateRustyBankMenu(player);
-                }
-                else
-                {
-                    CreateBlankAccountMenu(player);
-                }
-            }
-            else if(permission.UserHasPermission(player.UserIDString, PermVip3))
-            {
-                if (ExistsAccount(player))
-                {
-                    CreateRustyBankMenu(player);
-                }
-                else
-                {
-                    CreateBlankAccountMenu(player);
-                }
-            }
-            else if(permission.UserHasPermission(player.UserIDString, PermDefault))
-            {
-                if (ExistsAccount(player))
-                {
-                    CreateRustyBankMenu(player);
+                    CreateRustyBankMenu(player, npc);
                 }
                 else
                 {
@@ -662,12 +614,13 @@ namespace Oxide.Plugins
         /// <summary>
         /// 拡張追加(手持ちから支払い)
         /// </summary>
-        /// <param name="player"></param>
+        /// <param name="player">プレイヤー</param>
+        /// <param name="amount">追加口数</param>
         private void AddExtensionFromHand(BasePlayer player, int amount)
         {
             var cost = amount * Configs.ExtensionFee;
             //拡張容量確認
-            var playerData = new PlayerData();
+            PlayerData playerData;
             if (!_dataPlayerRb.TryGetValue(player.userID, out playerData))
             {
                 return;
@@ -710,16 +663,17 @@ namespace Oxide.Plugins
 
             return;
         }
-        
+
         /// <summary>
         /// 拡張追加(口座から支払い)
         /// </summary>
-        /// <param name="player"></param>
+        /// <param name="player">プレイヤー</param>
+        /// <param name="amount">追加口数</param>
         private void AddExtensionFromBank(BasePlayer player, int amount)
         {
             //拡張容量確認
             var cost = amount * Configs.ExtensionFee;
-            PlayerData playerData = new PlayerData();
+            PlayerData playerData;
             if (!_dataPlayerRb.TryGetValue(player.userID, out playerData))
             {
                 return;
@@ -747,717 +701,6 @@ namespace Oxide.Plugins
 
             return;
         }
-        #endregion
-
-        #region Commands
-        [ChatCommand("banknpc")]
-        private void CommandBankNpc(BasePlayer player, string command, string[] args)
-        {
-            if (!permission.UserHasPermission(player.UserIDString, PermAdmin))
-            {
-                SendMessage(player, lang.GetMessage("NoPerm", this));
-                return;
-            }
-            
-            if (args == null || args.Length == 0 || 1 < args.Length)
-            {
-                SendMessage(player, lang.GetMessage("SyntaxError", this));
-                return;
-            }
-
-            if (args[0].ToLower().Equals("add"))
-            {
-                if (_managedAddList.Contains(player.userID))
-                {
-                    SendMessage(player, lang.GetMessage("AlreadyAddMode", this));
-                }
-                else
-                {
-                    _managedAddList.Add(player.userID);
-                    SendMessage(player, lang.GetMessage("SwitchAddMode", this));
-                    timer.Once(30f, () =>
-                    {
-                        if (_managedAddList.Contains(player.userID))
-                        {
-                            _managedAddList.Remove(player.userID);
-                            SendMessage(player, lang.GetMessage("TimeoutAddMode", this));
-                        }
-                    });
-                }
-            }
-            else if(args[0].ToLower().Equals("remove"))
-            {
-                if (_managedRemoveList.Contains(player.userID))
-                {
-                    SendMessage(player, lang.GetMessage("AlreadyRemoveMode", this));
-                }
-                else
-                {
-                    _managedRemoveList.Add(player.userID);
-                    SendMessage(player, lang.GetMessage("SwitchRemoveMode", this));
-                    timer.Once(30f, () =>
-                    {
-                        if (_managedRemoveList.Contains(player.userID))
-                        {
-                            _managedRemoveList.Remove(player.userID);
-                            SendMessage(player, lang.GetMessage("TimeoutRemoveMode", this));
-                        }
-                    });
-                }
-            }
-            
-        }
-
-        [ChatCommand("bank")]
-        private void CommandBank(BasePlayer player, string command, string[] args)
-        {
-            // if (permission.UserHasPermission(player.UserIDString, PermAdmin))
-            // {
-            //     //管理用UI
-            //     CreateBankAdminMenu(player);
-            //     return;
-            // }
-            if (Configs.IsOnlyUi)
-            {
-                SendMessage(player, lang.GetMessage("NoPerm", this));
-                return;
-            }
-            
-            RustyBankUiCrate(player);
-
-            return;
-        }
-
-        [ConsoleCommand("rustybank.destroyui")]
-        private void DestroycUI(ConsoleSystem.Arg args)
-        {
-            var player = args.Connection.player as BasePlayer;
-            FuncDestroyUi(player);
-        }
-
-        /// <summary>
-        /// 入金処理
-        /// </summary>
-        /// <param name="args"></param>
-        /// <exception cref="Exception"></exception>
-        [ConsoleCommand("rustybank.deposit")]
-        private void RustyBankDepositCommand(ConsoleSystem.Arg args)
-        {
-            var player = args.Connection.player as BasePlayer;
-            try
-            {
-                double depositAmount = Convert.ToDouble(args.Args[0]);
-
-                double fees = GetFees(player);
-
-                double cost = depositAmount + fees;
-
-                if (!UseHasPerm(player))
-                {
-                    CreateFadeUI(player, lang.GetMessage("NoPerm", this));
-                    return;
-                }
-
-                //Economics残高チェック
-                double possession = Convert.ToDouble(Economics?.Call("Balance", player.userID));
-                if (possession < cost)
-                {
-                    CreateFadeUI(player, lang.GetMessage("DoNotHavePossession", this));
-                    return;
-                }
-
-                //RustyBank残高チェック
-                PlayerData playerData;
-                if (!_dataPlayerRb.TryGetValue(player.userID, out playerData))
-                {
-                    playerData = new PlayerData()
-                    {
-                        DisplayName = player.displayName
-                    };
-                }
-                else
-                {
-                    bool isCalledEconomicsApi = false;
-                    bool isRustyBankBalance = false;
-
-                    var maxDepositBalance = GetMaxDepositBalance(player);
-
-                    if (maxDepositBalance < playerData.Balance + depositAmount)
-                    {
-                        CreateFadeUI(player, lang.GetMessage("BalanceExceedsLimit", this));
-                        return;
-                    }
-
-                    try
-                    {
-                        var apiResult = Economics?.Call("Withdraw", player.userID, cost);
-                        if (apiResult == null || !(bool)apiResult)
-                        {
-                            throw new Exception();
-                        }
-                        isCalledEconomicsApi = true;
-                        playerData.Balance += depositAmount;
-                        isRustyBankBalance = true;
-                        if (!isCalledEconomicsApi || !isRustyBankBalance)
-                        {
-                            throw new Exception();
-                        }
-                    }
-                    catch(Exception)
-                    {
-                        Puts("Deposit Exception");
-                        if (isCalledEconomicsApi)
-                        {
-                            Economics?.Call("Deposit", player.userID, depositAmount);
-                        }
-
-                        if (isRustyBankBalance)
-                        {
-                            playerData.Balance -= depositAmount;
-                        }
-                    }
-                    
-                    // if (permission.UserHasPermission(player.UserIDString, PermAdmin))
-                    // {
-                    //     if (Configs.Admin.MaxDepositBalance < playerData.Balance + depositAmount)
-                    //     {
-                    //         CreateFadeUI(player, lang.GetMessage("BalanceExceedsLimit", this));
-                    //         return;
-                    //     }
-                    //
-                    //     try
-                    //     {
-                    //         var apiResult = Economics?.Call("Withdraw", player.userID, cost);
-                    //         if (apiResult == null || !(bool)apiResult)
-                    //         {
-                    //             throw new Exception();
-                    //         }
-                    //         isCalledEconomicsApi = true;
-                    //         playerData.Balance += depositAmount;
-                    //         isRustyBankBalance = true;
-                    //         if (!isCalledEconomicsApi || !isRustyBankBalance)
-                    //         {
-                    //             throw new Exception();
-                    //         }
-                    //     }
-                    //     catch(Exception)
-                    //     {
-                    //         Puts("Deposit Exception");
-                    //         if (isCalledEconomicsApi)
-                    //         {
-                    //             Economics?.Call("Deposit", player.userID, depositAmount);
-                    //         }
-                    //
-                    //         if (isRustyBankBalance)
-                    //         {
-                    //             playerData.Balance -= depositAmount;
-                    //         }
-                    //     }
-                    // }
-                    // else if (permission.UserHasPermission(player.UserIDString, PermVip1))
-                    // {
-                    //     if (Configs.Vip1.MaxDepositBalance < playerData.Balance + depositAmount)
-                    //     {
-                    //         CreateFadeUI(player, lang.GetMessage("BalanceExceedsLimit", this));
-                    //         return;
-                    //     }
-                    //     try
-                    //     {
-                    //         var apiResult = Economics?.Call("Withdraw", player.userID, depositAmount);
-                    //         if (apiResult == null || !(bool)apiResult)
-                    //         {
-                    //             throw new Exception();
-                    //         }
-                    //         isCalledEconomicsApi = true;
-                    //         playerData.Balance += depositAmount;
-                    //         isRustyBankBalance = true;
-                    //
-                    //         if (!isCalledEconomicsApi || !isRustyBankBalance)
-                    //         {
-                    //             throw new Exception();
-                    //         }
-                    //     }
-                    //     catch (Exception)
-                    //     {
-                    //         if (isCalledEconomicsApi)
-                    //         {
-                    //             Economics?.Call("Deposit", player.userID, depositAmount);
-                    //         }
-                    //
-                    //         if (isRustyBankBalance)
-                    //         {
-                    //             playerData.Balance -= depositAmount;
-                    //         }
-                    //     }
-                    // }
-                    // else if (permission.UserHasPermission(player.UserIDString, PermVip2))
-                    // {
-                    //     if (Configs.Vip2.MaxDepositBalance < playerData.Balance + depositAmount)
-                    //     {
-                    //         CreateFadeUI(player, lang.GetMessage("BalanceExceedsLimit", this));
-                    //         return;
-                    //     }
-                    //     try
-                    //     {
-                    //         var apiResult = Economics?.Call("Withdraw", player.userID, depositAmount);
-                    //         if (apiResult == null || !(bool)apiResult)
-                    //         {
-                    //             throw new Exception();
-                    //         }
-                    //         isCalledEconomicsApi = true;
-                    //         playerData.Balance += depositAmount;
-                    //         isRustyBankBalance = true;
-                    //
-                    //         if (!isCalledEconomicsApi || !isRustyBankBalance)
-                    //         {
-                    //             throw new Exception();
-                    //         }
-                    //     }
-                    //     catch (Exception)
-                    //     {
-                    //         if (isCalledEconomicsApi)
-                    //         {
-                    //             Economics?.Call("Deposit", player.userID, depositAmount);
-                    //         }
-                    //
-                    //         if (isRustyBankBalance)
-                    //         {
-                    //             playerData.Balance -= depositAmount;
-                    //         }
-                    //     }
-                    // }
-                    // else if (permission.UserHasPermission(player.UserIDString, PermVip3))
-                    // {
-                    //     if (Configs.Vip3.MaxDepositBalance < playerData.Balance + depositAmount)
-                    //     {
-                    //         CreateFadeUI(player, lang.GetMessage("BalanceExceedsLimit", this));
-                    //         return;
-                    //     }
-                    //     try
-                    //     {
-                    //         var apiResult = Economics?.Call("Withdraw", player.userID, depositAmount);
-                    //         if (apiResult == null || !(bool)apiResult)
-                    //         {
-                    //             throw new Exception();
-                    //         }
-                    //         isCalledEconomicsApi = true;
-                    //         playerData.Balance += depositAmount;
-                    //         isRustyBankBalance = true;
-                    //
-                    //         if (!isCalledEconomicsApi || !isRustyBankBalance)
-                    //         {
-                    //             throw new Exception();
-                    //         }
-                    //     }
-                    //     catch (Exception)
-                    //     {
-                    //         if (isCalledEconomicsApi)
-                    //         {
-                    //             Economics?.Call("Deposit", player.userID, depositAmount);
-                    //         }
-                    //
-                    //         if (isRustyBankBalance)
-                    //         {
-                    //             playerData.Balance -= depositAmount;
-                    //         }
-                    //     }
-                    // }
-                    // else if (permission.UserHasPermission(player.UserIDString, PermDefault))
-                    // {
-                    //     if (Configs.Default.MaxDepositBalance < playerData.Balance + depositAmount)
-                    //     {
-                    //         CreateFadeUI(player, lang.GetMessage("BalanceExceedsLimit", this));
-                    //         return;
-                    //     }
-                    //     try
-                    //     {
-                    //         var apiResult = Economics?.Call("Withdraw", player.userID, depositAmount);
-                    //         if (apiResult == null || !(bool)apiResult)
-                    //         {
-                    //             throw new Exception();
-                    //         }
-                    //         isCalledEconomicsApi = true;
-                    //         playerData.Balance += depositAmount;
-                    //         isRustyBankBalance = true;
-                    //
-                    //         if (!isCalledEconomicsApi || !isRustyBankBalance)
-                    //         {
-                    //             throw new Exception();
-                    //         }
-                    //     }
-                    //     catch (Exception)
-                    //     {
-                    //         if (isCalledEconomicsApi)
-                    //         {
-                    //             Economics?.Call("Deposit", player.userID, depositAmount);
-                    //         }
-                    //
-                    //         if (isRustyBankBalance)
-                    //         {
-                    //             playerData.Balance -= depositAmount;
-                    //         }
-                    //     }
-                    // }
-                    // else
-                    // {
-                    //     CreateFadeUI(player, lang.GetMessage("NoPerm", this));
-                    //     return;
-                    // }
-                }
-            }
-            catch
-            {
-                //
-            }
-            UpdateSubUi(player);
-
-        }
-        
-        /// <summary>
-        /// 出金処理
-        /// </summary>
-        /// <param name="args"></param>
-        /// <exception cref="Exception"></exception>
-        [ConsoleCommand("rustybank.withdraw")]
-        private void RustyBankWithdrawCommand(ConsoleSystem.Arg args)
-        {
-            var player = args.Connection.player as BasePlayer;
-            try
-            {
-                var withdrawAmount = Convert.ToDouble(args.Args[0]);
-
-                var fees = GetFees(player);
-
-                var cost = withdrawAmount + fees;
-                
-                if (!UseHasPerm(player))
-                {
-                    CreateFadeUI(player, lang.GetMessage("NoPerm", this));
-                    return;
-                }
-
-                //RustyBank残高チェック
-                PlayerData playerData;
-                if (!_dataPlayerRb.TryGetValue(player.userID, out playerData))
-                {
-                    CreateFadeUI(player, lang.GetMessage("NotExistsAccount", this));
-                }
-                else
-                {
-                    if (playerData.Balance < cost)
-                    {
-                        CreateFadeUI(player, lang.GetMessage("BalanceInsufficient", this));
-                        return;
-                    }
-
-                    bool isCalledEconomicsApi = false;
-                    bool isRustyBankBalance = false;
-                    try
-                    {
-                        var apiResult = Economics?.Call("Deposit", player.userID, withdrawAmount);
-                        if (apiResult == null || !(bool)apiResult)
-                        {
-                            throw new Exception();
-                        }
-                        isCalledEconomicsApi = true;
-
-                        playerData.Balance -= cost;
-                        isRustyBankBalance = true;
-
-                        if (!isCalledEconomicsApi || !isRustyBankBalance)
-                        {
-                            throw new Exception();
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        if (isCalledEconomicsApi)
-                        {
-                            Economics?.Call("Withdraw", player.userID, withdrawAmount);
-                        }
-
-                        if (isRustyBankBalance)
-                        {
-                            playerData.Balance += withdrawAmount;
-                        }
-
-                    }
-                }
-            }
-            catch
-            {
-                //
-            }
-            UpdateSubUi(player);
-        }
-
-        [ConsoleCommand("rustybank.createaccount")]
-        private void RustyBankCreateAccountCommand(ConsoleSystem.Arg args)
-        {
-            var player = args.Connection.player as BasePlayer;
-
-            double initialDeposit = 500;
-            //Economics残高チェック
-            double inHand;
-            GetPossession(player, out inHand);
-
-            var fees = GetFees(player);
-
-            var cost = initialDeposit + fees;
-
-            if (cost <= inHand)
-            {
-                PlayerData playerData;
-                if (_dataPlayerRb.TryGetValue(player.userID, out playerData))
-                {
-                    return;
-                }
-                else
-                {
-                    var apiResult = Economics?.Call("Withdraw", player.userID, cost);
-                    if (apiResult == null || !(bool)apiResult)
-                    {
-                        CreateFadeUI(player, lang.GetMessage("InternalError", this));
-                        return;
-                    }
-
-                    playerData = new PlayerData()
-                    {
-                        DisplayName = player.displayName,
-                        Balance = initialDeposit
-                    };
-                    _dataPlayerRb.Add(player.userID, playerData);
-                }
-            }
-            else
-            {
-                CreateFadeUI(player, lang.GetMessage("DoNotHavePossession", this));
-                return;
-            }
-
-            FuncDestroyUi(player);
-        }
-        
-        [ConsoleCommand("rustybank.createbankextensionmenu")]
-        private void RustyBankCreateBankExtension(ConsoleSystem.Arg args)
-        {
-            var player = args.Connection.player as BasePlayer;
-            FuncDestroyUi(player);
-            CreateExtensionPanel(player);
-        }
-        
-        [ConsoleCommand("rustybank.destroybankextensionmenu")]
-        private void RustyBankDestroyBankExtension(ConsoleSystem.Arg args)
-        {
-            var player = args.Connection.player as BasePlayer;
-            
-            var itemCounter = Convert.ToInt32(args.Args[0]);
-
-            FuncDestroyExtensionUi(player, itemCounter);
-            
-            CreateRustyBankMenu(player);
-        }
-        
-        [ConsoleCommand("rustybank.addbankextension")]
-        private void RustyBankAddBankExtension(ConsoleSystem.Arg args)
-        {
-            var player = args.Connection.player as BasePlayer;
-
-            if (args.Args.Length <= 0) return;
-
-            var mode = args.Args[0];
-
-            var amount = Convert.ToInt32(args.Args[1]);
-
-            switch (mode)
-            {
-                case "t":
-                    AddExtensionFromHand(player, amount);
-                    break;
-                case "b":
-                    AddExtensionFromBank(player, amount);
-                    break;
-                default:
-                    break;
-            }
-            CreateExtensionSubUI(player);
-        }
-
-        // [ConsoleCommand("rustybank.createBankMenuFromAdmin")]
-        // private void RustyBankCreateBankMenuFromAdmin(ConsoleSystem.Arg args)
-        // {
-        //     var player = args.Connection.player as BasePlayer;
-        //
-        //     FuncDestroyUi(player);
-        //     CommandBank(player, null, null);
-        // }
-        
-        // [ConsoleCommand("rustybank.createbankshop")]
-        // private void RustyBankCreateBankShopCommand(ConsoleSystem.Arg args)
-        // {
-        //     var player = args.Connection.player as BasePlayer;
-        //
-        //     Puts("STEP1");
-        //     
-        //     FuncDestroyUi(player);
-        //
-        //     Puts("STEP2");
-        //     
-        //     CreateBankShopUi(player);
-        //     
-        //     Puts("STEP3");
-        // }
-        #endregion
-
-        #region UI
-        class UI
-        {
-            public static CuiElementContainer CreateElementContainer(string panelName, string color, string aMin, string aMax, bool cursor = false)
-            {
-                var newElement = new CuiElementContainer()
-                {
-                    {
-                        new CuiPanel
-                        {
-                            Image = {Color = color},
-                            RectTransform = {AnchorMin = aMin, AnchorMax = aMax},
-                            CursorEnabled = cursor
-                        },
-                        new CuiElement().Parent = "Overlay",
-                        panelName
-                    }
-                };
-                return newElement;
-            }
-            public static CuiElementContainer CreateElementContainerFade(string panelName, string color, string aMin, string aMax, float fadeInTime, float fadeOutTime, bool cursor = false)
-            {
-                var newElement = new CuiElementContainer()
-                {
-                    {
-                        new CuiPanel
-                        {
-                            Image = {Color = color, FadeIn = fadeInTime},
-                            RectTransform = {AnchorMin = aMin, AnchorMax = aMax},
-                            CursorEnabled = cursor,
-                            FadeOut = fadeOutTime,
-                        },
-                        new CuiElement().Parent = "Overlay",
-                        panelName
-                    }
-                };
-                return newElement;
-            }
-            public static void CreatePanel(ref CuiElementContainer container, string panel, string color, string aMin, string aMax, bool cursor = false)
-            {
-                container.Add(new CuiPanel
-                {
-                    Image = { Color = color },
-                    RectTransform = { AnchorMin = aMin, AnchorMax = aMax },
-                    CursorEnabled = cursor
-                },
-                panel);
-            }
-            public static void CreatePanelFade(ref CuiElementContainer container, string panel, string color, string aMin, string aMax, float fadeInTime, float fadeOutTime, bool cursor = false)
-            {
-                container.Add(new CuiPanel
-                    {
-                        Image = { Color = color, FadeIn = fadeInTime },
-                        RectTransform = { AnchorMin = aMin, AnchorMax = aMax },
-                        CursorEnabled = cursor,
-                        FadeOut = fadeOutTime
-                },
-                    panel);
-            }
-            public static void CreateLabel(ref CuiElementContainer container, string panel, string color, string text, int size, string aMin, string aMax, TextAnchor align = TextAnchor.MiddleCenter)
-            {
-                container.Add(new CuiLabel
-                {
-                    Text = { Color = color, FontSize = size, Align = align, Text = text },
-                    RectTransform = { AnchorMin = aMin, AnchorMax = aMax }
-                },
-                panel);
-            }
-            public static void CreateLabelFade(ref CuiElementContainer container, string panel, string color, string text, int size, string aMin, string aMax, float fadeInTime, float fadeOutTime, TextAnchor align = TextAnchor.MiddleCenter)
-            {
-                container.Add(new CuiLabel
-                    {
-                        Text = { Color = color, FontSize = size, Align = align, Text = text, FadeIn = fadeInTime },
-                        RectTransform = { AnchorMin = aMin, AnchorMax = aMax },
-                        FadeOut = fadeOutTime,
-                    },
-                    panel);
-            }
-            public static void CreateButton(ref CuiElementContainer container, string panel, string color, string text, int size, string aMin, string aMax, string command, TextAnchor align = TextAnchor.MiddleCenter)
-            {
-                container.Add(new CuiButton
-                {
-                    Button = { Color = color, Command = command },
-                    Text = { Text = text, FontSize = size, Align = align },
-                    RectTransform = { AnchorMin = aMin, AnchorMax = aMax }
-
-                }
-                , panel);
-            }
-
-            public static void CreateImage(ref CuiElementContainer container, string panel, string color, string imageUrl, string aMin, string aMax)
-            {
-                container.Add(new CuiElement
-                {
-                    Components =
-                    {
-                        new CuiRawImageComponent
-                        {
-                            Color = color,
-                            Url = imageUrl,
-                        },
-                        new CuiRectTransformComponent
-                        {
-                            AnchorMin = aMin,
-                            AnchorMax = aMax
-                        }
-                    }
-                });
-            }
-            public static string Color(string hexColor, float alpha)
-            {
-                if (hexColor.StartsWith("#"))
-                    hexColor = hexColor.TrimStart('#');
-                int red = int.Parse(hexColor.Substring(0, 2), NumberStyles.AllowHexSpecifier);
-                int green = int.Parse(hexColor.Substring(2, 2), NumberStyles.AllowHexSpecifier);
-                int blue = int.Parse(hexColor.Substring(4, 2), NumberStyles.AllowHexSpecifier);
-                return $"{(double)red / 255} {(double)green / 255} {(double)blue / 255} {alpha}";
-            }
-        }
-        #endregion
-
-        #region UI Creation
-
-        /// <summary>
-        /// 管理メニュー
-        /// </summary>
-        /// <param name="player"></param>
-        // private void CreateBankAdminMenu(BasePlayer player)
-        // {
-        //     //MainUI
-        //     var mainUiElement = UI.CreateElementContainer(AdminUiName, UI.Color("#000000", (float) 0.75), "0.0 0.0", "1 1");
-        //     UI.CreatePanel(ref mainUiElement, AdminUiName, UI.Color("#000000", (float)0.9), "0.01 0.01", "0.99 0.99", true);
-        //
-        //     //Label: Name
-        //     var nameLabelUiElement = UI.CreateElementContainer(NameLabelUiName, UI.Color("#f5f5f5", (float)0.5), "0.01 0.90", "0.5 0.99");
-        //     UI.CreateLabel(ref nameLabelUiElement, NameLabelUiName, UI.Color("#FFA500", (float)1.0), $"{this.Title} Ver.{this.Version}", 30, "0 0", "1 1");
-        //     
-        //     //Close
-        //     UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#FF0000", (float)1.0), "<color=#FFFFFF>Close</color>", 18, "0.8 0.92", "0.99 0.97", "rustybank.destroyui");
-        //
-        //     UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#32CD32", (float)1.0), "<color=#FFFFFF>プレイヤー残高照会</color>", 18, "0.01 0.3", "0.99 0.4", "rustybank.createaccount");
-        //     UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#32CD32", (float)1.0), "<color=#FFFFFF>RustyBankメインメニュー</color>", 18, "0.01 0.5", "0.99 0.6", "rustybank.createBankMenuFromAdmin");
-        //     
-        //     
-        //     CuiHelper.AddUi(player, mainUiElement);
-        //     AddUiPanel(player, MainUiName);
-        // }
-        
-        
         
         /// <summary>
         /// アカウント新規作成
@@ -1496,7 +739,7 @@ namespace Oxide.Plugins
         /// RustyBankメインメニュー
         /// </summary>
         /// <param name="player"></param>
-        private void CreateRustyBankMenu(BasePlayer player)
+        private void CreateRustyBankMenu(BasePlayer player, BasePlayer npc = null)
         {
             
             //MainUI
@@ -1507,37 +750,37 @@ namespace Oxide.Plugins
             var nameLabelUiElement = UI.CreateElementContainer(NameLabelUiName, UI.Color("#f5f5f5", (float)0.5), "0.01 0.90", "0.5 0.99");
             UI.CreateLabel(ref nameLabelUiElement, NameLabelUiName, UI.Color("#FFA500", (float)1.0), Configs.ShowVersion? $"{this.Title} Ver.{this.Version}" : $"{this.Title}", 30, "0 0", "1 1");
 
+            var opMenuUiElement = UI.CreateElementContainer(OpMenuUiName, UI.Color("#f5f5f5", (float)0.4), "0.01 0.10", "0.99 0.75");
             //入金
-            var depositUiElement = UI.CreateElementContainer(DepositUiName, UI.Color("#f5f5f5", (float)0.4), "0.01 0.10", "0.475 0.75");
-            //UI.CreateLabel(ref mainUiElement, _MainUiName, "", "Deposit", 15, "0.05 0.7", "0.95 0.8");
-            UI.CreateLabel(ref depositUiElement, DepositUiName, "", "入金", 25, "0.05 0.85", "0.95 0.99");
-
-            //UI.CreateButton(ref mainUiElement, _MainUiName, UI.Color("#0000FF", (float)0.5), "<color=#FFFFFF>50</color>", 18, "0.02 0.6", "0.124 0.7", "rustybank.deposit 50");
-            //UI.CreateButton(ref mainUiElement, _MainUiName, UI.Color("#0000FF", (float)0.5), "<color=#FFFFFF>100</color>", 18, "0.127 0.6", "0.249 0.7", "rustybank.deposit 100");
-            UI.CreateButton(ref depositUiElement, DepositUiName, UI.Color("#000000", (float)0.75), "<color=#FFFFFF>500</color>", 20, "0.02 0.63", "0.49 0.84", "rustybank.deposit 500");
-            UI.CreateButton(ref depositUiElement, DepositUiName, UI.Color("#000000", (float)0.75), "<color=#FFFFFF>1,000</color>", 20, "0.52 0.63", "0.98 0.84", "rustybank.deposit 1000");
-            UI.CreateButton(ref depositUiElement, DepositUiName, UI.Color("#000000", (float)0.75), "<color=#FFFFFF>5,000</color>", 20, "0.02 0.32", "0.49 0.61", "rustybank.deposit 5000");
-            UI.CreateButton(ref depositUiElement, DepositUiName, UI.Color("#000000", (float)0.75), "<color=#FFFFFF>10,000</color>", 20, "0.52 0.32", "0.98 0.61", "rustybank.deposit 10000");
-            UI.CreateButton(ref depositUiElement, DepositUiName, UI.Color("#000000", (float)0.75), "<color=#FFFFFF>50,000</color>", 20, "0.02 0.01", "0.49 0.3", "rustybank.deposit 50000");
-            UI.CreateButton(ref depositUiElement, DepositUiName, UI.Color("#000000", (float)0.75), "<color=#FFFFFF>100,000</color>", 20, "0.52 0.01", "0.98 0.3", "rustybank.deposit 100000");
+            UI.CreateButton(ref opMenuUiElement, OpMenuUiName, UI.Color("#000000", (float)0.75), "入金", 50, "0.05 0.25", "0.45 0.75", "rustybank.createdwui deposit");
+            //UI.CreateLabel(ref depositUiElement, DepositUiName, "", "入金", 25, "0.05 0.85", "0.95 0.99");
+            //Deposit
+            // UI.CreateButton(ref depositUiElement, DepositUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{1000:#,0}</color>", 20, "0.02 0.63", "0.49 0.84", "rustybank.deposit 1000");
+            // UI.CreateButton(ref depositUiElement, DepositUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{5000:#,0}</color>", 20, "0.52 0.63", "0.98 0.84", "rustybank.deposit 5000");
+            // UI.CreateButton(ref depositUiElement, DepositUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{10000:#,0}</color>", 20, "0.02 0.32", "0.49 0.61", "rustybank.deposit 10000");
+            // UI.CreateButton(ref depositUiElement, DepositUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{50000:#,0}</color>", 20, "0.52 0.32", "0.98 0.61", "rustybank.deposit 50000");
+            // UI.CreateButton(ref depositUiElement, DepositUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{100000:#,0}</color>", 20, "0.02 0.01", "0.49 0.3", "rustybank.deposit 100000");
+            // if (npc != null)
+            // {
+            //     UI.CreateButton(ref depositUiElement, DepositUiName, UI.Color("#000000", (float)0.75), "<color=#FFFFFF>コマンドで入金</color>", 20, "0.52 0.01", "0.98 0.3", $"rustybank.addcustomtransactiondata withdraw {npc.transform.position.x} {npc.transform.position.y} {npc.transform.position.z}");
+            // }
+            //UI.CreateInputField(ref depositUiElement, DepositUiName, UI.Color("#ffff00", (float)1.00), UI.Color("#ffff00", (float)1.00), 50, 8, "0 0", "1 1", "rustybank.mes",TextAnchor.MiddleCenter, "12345678");
 
 
             //出金
-            var withdrawUiElement = UI.CreateElementContainer(WithdrawUiName, UI.Color("#f5f5f5", (float)0.4), "0.525 0.10", "0.99 0.75");
-            //UI.CreateLabel(ref mainUiElement, _MainUiName, "", "Withdraw", 15, "0.05 0.4", "0.95 0.5");
-            UI.CreateLabel(ref withdrawUiElement, WithdrawUiName, "", "出金", 25, "0.05 0.85", "0.95 0.99");
-            //Withdraw
-            //UI.CreateButton(ref mainUiElement, _MainUiName, UI.Color("#0000FF", (float)0.5), "<color=#FFFFFF>50</color>", 18, "0.02 0.3", "0.124 0.4", "rustybank.withdraw 50");
-            //UI.CreateButton(ref mainUiElement, _MainUiName, UI.Color("#0000FF", (float)0.5), "<color=#FFFFFF>100</color>", 18, "0.127 0.3", "0.249 0.4", "rustybank.withdraw 100");
-            UI.CreateButton(ref withdrawUiElement, WithdrawUiName, UI.Color("#000000", (float)0.75), "<color=#FFFFFF>500</color>", 20, "0.02 0.63", "0.49 0.84", "rustybank.withdraw 500");
-            UI.CreateButton(ref withdrawUiElement, WithdrawUiName, UI.Color("#000000", (float)0.75), "<color=#FFFFFF>1,000</color>", 20, "0.52 0.63", "0.98 0.84", "rustybank.withdraw 1000");
-            UI.CreateButton(ref withdrawUiElement, WithdrawUiName, UI.Color("#000000", (float)0.75), "<color=#FFFFFF>5,000</color>", 20, "0.02 0.32", "0.49 0.61", "rustybank.withdraw 5000");
-            UI.CreateButton(ref withdrawUiElement, WithdrawUiName, UI.Color("#000000", (float)0.75), "<color=#FFFFFF>10,000</color>", 20, "0.52 0.32", "0.98 0.61", "rustybank.withdraw 10000");
-            UI.CreateButton(ref withdrawUiElement, WithdrawUiName, UI.Color("#000000", (float)0.75), "<color=#FFFFFF>50,000</color>", 20, "0.02 0.01", "0.49 0.3", "rustybank.withdraw 50000");
-            UI.CreateButton(ref withdrawUiElement, WithdrawUiName, UI.Color("#000000", (float)0.75), "<color=#FFFFFF>100,000</color>", 20, "0.52 0.01", "0.98 0.3", "rustybank.withdraw 100000");
-
-            //BankShop
-            //UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#0000FF", (float)1.0), "<color=#FFFFFF>SHOP</color>", 18, "0.56 0.92", "0.75 0.99", "rustybank.createbankshop");
+            UI.CreateButton(ref opMenuUiElement, OpMenuUiName, UI.Color("#000000", (float)0.75), "出金", 50, "0.55 0.25", "0.95 0.75", "rustybank.createdwui withdraw");
+            // var withdrawUiElement = UI.CreateElementContainer(WithdrawUiName, UI.Color("#f5f5f5", (float)0.4), "0.525 0.10", "0.99 0.75");
+            // UI.CreateLabel(ref withdrawUiElement, WithdrawUiName, "", "出金", 25, "0.05 0.85", "0.95 0.99");
+            // //Withdraw
+            // UI.CreateButton(ref withdrawUiElement, WithdrawUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{1000:#,0}</color>", 20, "0.02 0.63", "0.49 0.84", "rustybank.withdraw 1000");
+            // UI.CreateButton(ref withdrawUiElement, WithdrawUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{5000:#,0}</color>", 20, "0.52 0.63", "0.98 0.84", "rustybank.withdraw 5000");
+            // UI.CreateButton(ref withdrawUiElement, WithdrawUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{10000:#,0}</color>", 20, "0.02 0.32", "0.49 0.61", "rustybank.withdraw 10000");
+            // UI.CreateButton(ref withdrawUiElement, WithdrawUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{50000:#,0}</color>", 20, "0.52 0.32", "0.98 0.61", "rustybank.withdraw 50000");
+            // UI.CreateButton(ref withdrawUiElement, WithdrawUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{100000:#,0}</color>", 20, "0.02 0.01", "0.49 0.3", "rustybank.withdraw 100000");
+            // if (npc != null)
+            // {
+            //     UI.CreateButton(ref withdrawUiElement, WithdrawUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>コマンドで出金</color>", 20, "0.52 0.01", "0.98 0.3", $"rustybank.addcustomtransactiondata deposit {npc.transform.position.x} {npc.transform.position.y} {npc.transform.position.z}");
+            // }
 
             //拡張
             if (Configs.IsExtension)
@@ -1549,44 +792,29 @@ namespace Oxide.Plugins
             UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#FF0000", (float)1.0), "<color=#FFFFFF>Close</color>", 18, "0.8 0.92", "0.99 0.99", "rustybank.destroyui");
 
             //説明Label
-            double fees = 0.0;
-            if (permission.UserHasPermission(player.UserIDString, PermAdmin))
-            {
-                if (Configs.Admin.IsFee)
-                {
-                    fees = Configs.Admin.Fee;
-                }
-            }
-            else if (permission.UserHasPermission(player.UserIDString, PermVip1))
-            {
-                if (Configs.Vip1.IsFee)
-                {
-                    fees = Configs.Vip1.Fee;
-                }
-            }
-            else if (permission.UserHasPermission(player.UserIDString, PermDefault))
-            {
-                if (Configs.Default.IsFee)
-                {
-                    fees = Configs.Default.Fee;
-                }
-            }
-            UI.CreateLabel(ref mainUiElement, MainUiName, UI.Color("#000000", (float)0.8), $"<color=#FFFFFF>取引手数料(Transaction Fees): {fees}</color>", 18, "0.1 0.03", "0.9 0.085");
+            var fees = GetFees(player);
+            UI.CreateLabel(ref mainUiElement, MainUiName, UI.Color("#000000", (float)0.8), $"<color=#FFFFFF>取引手数料(Transaction Fees): {fees:#,0}</color>", 18, "0.1 0.03", "0.9 0.085");
 
             CuiHelper.AddUi(player, mainUiElement);
             CuiHelper.AddUi(player, nameLabelUiElement);
-            CuiHelper.AddUi(player, depositUiElement);
-            CuiHelper.AddUi(player, withdrawUiElement);
+            CuiHelper.AddUi(player, opMenuUiElement);
+            // CuiHelper.AddUi(player, depositUiElement);
+            // CuiHelper.AddUi(player, withdrawUiElement);
             AddUiPanel(player, MainUiName);
             AddUiPanel(player, NameLabelUiName);
-            AddUiPanel(player, DepositUiName);
-            AddUiPanel(player, WithdrawUiName);
+            AddUiPanel(player, OpMenuUiName);
+            // AddUiPanel(player, DepositUiName);
+            // AddUiPanel(player, WithdrawUiName);
 
 
             //SubUI
             UpdateSubUi(player);
         }
 
+        /// <summary>
+        /// サブUI更新用
+        /// </summary>
+        /// <param name="player"></param>
         private void UpdateSubUi(BasePlayer player)
         {
             if (IsUiPanelOpened(player, SubUiName))
@@ -1627,6 +855,59 @@ namespace Oxide.Plugins
 
             CuiHelper.AddUi(player, subUiElement);
             AddUiPanel(player, SubUiName);
+        }
+
+        /// <summary>
+        /// 入出金用UI
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="mode"></param>
+        private void CreateDaWPanel(BasePlayer player, string mode)
+        {
+            //MainUI
+            var mainUiElement = UI.CreateElementContainer(MainUiName, UI.Color("#000000", (float) 0.75), "0.0 0.0", "1 1");
+            UI.CreatePanel(ref mainUiElement, MainUiName, UI.Color("#000000", (float)0.9), "0.01 0.01", "0.99 0.99", true);
+
+            //Label: Name
+            var nameLabelUiElement = UI.CreateElementContainer(NameLabelUiName, UI.Color("#f5f5f5", (float)0.5), "0.01 0.90", "0.5 0.99");
+            UI.CreateLabel(ref nameLabelUiElement, NameLabelUiName, UI.Color("#FFA500", (float)1.0), Configs.ShowVersion? $"{this.Title} Ver.{this.Version}" : $"{this.Title}", 30, "0 0", "1 1");
+
+            //入力UI
+            var opMenuUiElement = UI.CreateElementContainer(OpMenuUiName, UI.Color("#f5f5f5", (float)0.4), "0.01 0.10", "0.99 0.75");
+            UI.CreateLabel(ref opMenuUiElement, OpMenuUiName, UI.Color("#FFFFFF", (float)1.0), $"↓金額を入力してください↓", 30, "0 0.75", "1 1");
+            UI.CreatePanel(ref opMenuUiElement, OpMenuUiName, UI.Color("#000000", (float)0.75), "0. 0.35", "1 0.65", true);
+            UI.CreateInputField(ref opMenuUiElement, OpMenuUiName, UI.Color("#ffff00", (float)1.00), UI.Color("#ffff00", (float)1.00), 50, 8, "0 0", "1 1", $"rustybank.dw {mode}",TextAnchor.MiddleCenter, "0");
+            
+            //ボタン
+            var DaWUiElement = UI.CreateElementContainer(DaWUiName, UI.Color("#000000", (float) 0.75), "0.25 0.1", "0.75 0.2");
+            switch (mode)
+            {
+                case "deposit":
+                    UI.CreateButton(ref DaWUiElement, DaWUiName, UI.Color("#47cc81",1f), "入金する", 25, "0 0", "1 1", "");
+                    break;
+                case "withdraw":
+                    UI.CreateButton(ref DaWUiElement, DaWUiName, UI.Color("#47cc81",1f), "出金する", 25, "0 0", "1 1", "");
+                    break;
+            }
+            
+            //Close
+            UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#FF0000", (float)1.0), "<color=#FFFFFF>Close</color>", 18, "0.8 0.92", "0.99 0.99", "rustybank.destroyui");
+            
+            //説明Label
+            var fees = GetFees(player);
+            UI.CreateLabel(ref mainUiElement, MainUiName, UI.Color("#000000", (float)0.8), $"<color=#FFFFFF>取引手数料(Transaction Fees): {fees:#,0}</color>", 18, "0.1 0.03", "0.9 0.085");
+            
+            CuiHelper.AddUi(player, mainUiElement);
+            CuiHelper.AddUi(player, nameLabelUiElement);
+            CuiHelper.AddUi(player, opMenuUiElement);
+            CuiHelper.AddUi(player, DaWUiElement);
+            AddUiPanel(player, MainUiName);
+            AddUiPanel(player, NameLabelUiName);
+            AddUiPanel(player, OpMenuUiName);
+            AddUiPanel(player, DaWUiName);
+            
+            //SubUI
+            UpdateSubUi(player);
         }
 
         /// <summary>
@@ -1693,7 +974,6 @@ namespace Oxide.Plugins
             var subUiElement = UI.CreateElementContainer(ExtensionSubUiName, UI.Color("#000000", (float)0.0), "0.01 0.55", "0.99 0.65");
 
             //Label
-            double _balance;
             UI.CreateLabel(ref subUiElement, ExtensionSubUiName, "", $"現在預金枠: {maxDepositBalance:#,0}", 20, "0.25 0.01", "0.75 0.9");
             
             CuiHelper.AddUi(player, subUiElement);
@@ -1886,6 +1166,621 @@ namespace Oxide.Plugins
             List<string> uiList;
             return OpenUiPanel.TryGetValue(player.userID, out uiList) && uiList.Contains(panelName);
         }
+
+        /// <summary>
+        /// 確認UI作成
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="mode"></param>
+        /// <param name="amount"></param>
+        private void CreateTransactionConfirmationUI(BasePlayer player, string mode, int amount)
+        {
+            FuncDestroyUi(player);
+            
+            //MainUI
+            var mainUiElement = UI.CreateElementContainer(MainUiName, UI.Color("#000000", (float) 0.75), "0.0 0.0", "1 1");
+            UI.CreatePanel(ref mainUiElement, MainUiName, UI.Color("#000000", (float)0.9), "0.01 0.01", "0.99 0.99", true);
+
+            //Label: Name
+            var nameLabelUiElement = UI.CreateElementContainer(NameLabelUiName, UI.Color("#f5f5f5", (float)0.5), "0.01 0.90", "0.5 0.99");
+            UI.CreateLabel(ref nameLabelUiElement, NameLabelUiName, UI.Color("#FFA500", (float)1.0), Configs.ShowVersion? $"{this.Title} Ver.{this.Version}" : $"{this.Title}", 30, "0 0", "1 1");
+            
+            
+            var opMenuUiElement = UI.CreateElementContainer(OpMenuUiName, UI.Color("#f5f5f5", (float)0.4), "0.01 0.10", "0.99 0.75");
+            switch (mode){
+                case "deposit":
+                    UI.CreateLabel(ref opMenuUiElement, OpMenuUiName, UI.Color("#FFFFFF", (float)1.0), $"入金します。よろしいですか?入金額: {amount:#,0}", 30, "0 0.75", "1 1");
+                    //OK
+                    UI.CreateButton(ref opMenuUiElement, OpMenuUiName, UI.Color("#000000", (float)0.75), "YES", 50, "0.55 0.25", "0.95 0.75", $"rustybank.deposit {amount}");
+                    //NO
+                    UI.CreateButton(ref opMenuUiElement, OpMenuUiName, UI.Color("#000000", (float)0.75), "NO", 50, "0.05 0.25", "0.45 0.75", $"rustybank.bankui");
+                    break;
+                case "withdraw":
+                    UI.CreateLabel(ref opMenuUiElement, OpMenuUiName, UI.Color("#FFFFFF", (float)1.0), $"出金します。よろしいですか?出金額: {amount:#,0}", 30, "0 0.75", "1 1");
+                    //OK
+                    UI.CreateButton(ref opMenuUiElement, OpMenuUiName, UI.Color("#000000", (float)0.75), "YES", 50, "0.55 0.25", "0.95 0.75", $"rustybank.withdraw {amount}");
+                    //NO
+                    UI.CreateButton(ref opMenuUiElement, OpMenuUiName, UI.Color("#000000", (float)0.75), "NO", 50, "0.05 0.25", "0.45 0.75", $"rustybank.bankui");
+                    break;
+            }
+            
+            CuiHelper.AddUi(player, mainUiElement);
+            CuiHelper.AddUi(player, nameLabelUiElement);
+            CuiHelper.AddUi(player, opMenuUiElement);
+            AddUiPanel(player, MainUiName);
+            AddUiPanel(player, NameLabelUiName);
+            AddUiPanel(player, OpMenuUiName);
+        }
+        #endregion
+
+        #region Commands
+        /// <summary>
+        /// NPC設定用コマンド
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="command"></param>
+        /// <param name="args"></param>
+        [ChatCommand("banknpc")]
+        private void CommandBankNpc(BasePlayer player, string command, string[] args)
+        {
+            if (!permission.UserHasPermission(player.UserIDString, PermAdmin))
+            {
+                SendMessage(player, lang.GetMessage("NoPerm", this));
+                return;
+            }
+            
+            if (args == null || args.Length == 0 || 1 < args.Length)
+            {
+                SendMessage(player, lang.GetMessage("SyntaxError", this));
+                return;
+            }
+
+            switch (args[0].ToLower())
+            {
+                case "add":
+                {
+                    if (_managedAddList.Contains(player.userID))
+                    {
+                        SendMessage(player, lang.GetMessage("AlreadyAddMode", this));
+                    }
+                    else
+                    {
+                        _managedAddList.Add(player.userID);
+                        SendMessage(player, lang.GetMessage("SwitchAddMode", this));
+                        timer.Once(30f, () =>
+                        {
+                            if (_managedAddList.Contains(player.userID))
+                            {
+                                _managedAddList.Remove(player.userID);
+                                SendMessage(player, lang.GetMessage("TimeoutAddMode", this));
+                            }
+                        });
+                    }
+
+                    break;
+                }
+                case "remove":
+                {
+                    if (_managedRemoveList.Contains(player.userID))
+                    {
+                        SendMessage(player, lang.GetMessage("AlreadyRemoveMode", this));
+                    }
+                    else
+                    {
+                        _managedRemoveList.Add(player.userID);
+                        SendMessage(player, lang.GetMessage("SwitchRemoveMode", this));
+                        timer.Once(30f, () =>
+                        {
+                            if (_managedRemoveList.Contains(player.userID))
+                            {
+                                _managedRemoveList.Remove(player.userID);
+                                SendMessage(player, lang.GetMessage("TimeoutRemoveMode", this));
+                            }
+                        });
+                    }
+
+                    break;
+                }
+            }
+            
+        }
+
+        /// <summary>
+        /// メインUI起動コマンド
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="command"></param>
+        /// <param name="args"></param>
+        [ChatCommand("bankui")]
+        private void CommandBankUi(BasePlayer player)
+        {
+            // if (permission.UserHasPermission(player.UserIDString, PermAdmin))
+            // {
+            //     //管理用UI
+            //     CreateBankAdminMenu(player);
+            //     return;
+            // }
+            if (Configs.IsOnlyUi)
+            {
+                SendMessage(player, lang.GetMessage("NoPerm", this));
+                return;
+            }
+            
+            FuncDestroyUi(player);
+            RustyBankUiCrate(player);
+
+            return;
+        }
+
+        [ConsoleCommand("rustybank.bankui")]
+        private void CommandBankUi(ConsoleSystem.Arg args)
+        {
+            var player = args.Connection.player as BasePlayer;
+            FuncDestroyUi(player);
+            CommandBankUi(player);
+        }
+
+        /// <summary>
+        /// UI破棄コマンド
+        /// </summary>
+        /// <param name="args"></param>
+        [ConsoleCommand("rustybank.destroyui")]
+        private void DestroycUI(ConsoleSystem.Arg args)
+        {
+            var player = args.Connection.player as BasePlayer;
+            FuncDestroyUi(player);
+        }
+
+        /// <summary>
+        /// 入金処理コマンド
+        /// </summary>
+        /// <param name="args"></param>
+        /// <exception cref="Exception"></exception>
+        [ConsoleCommand("rustybank.deposit")]
+        private void RustyBankDepositCommand(ConsoleSystem.Arg args)
+        {
+            var player = args.Connection.player as BasePlayer;
+            try
+            {
+                var depositAmount = Convert.ToDouble(args.Args[0]);
+
+                var fees = GetFees(player);
+
+                var cost = depositAmount + fees;
+
+                if (!UseHasPerm(player))
+                {
+                    CreateFadeUI(player, lang.GetMessage("NoPerm", this));
+                    return;
+                }
+
+                //Economics残高チェック
+                var possession = Convert.ToDouble(Economics?.Call("Balance", player.userID));
+                if (possession < cost)
+                {
+                    CreateFadeUI(player, lang.GetMessage("DoNotHavePossession", this));
+                    return;
+                }
+
+                //RustyBank残高チェック
+                PlayerData playerData;
+                if (!_dataPlayerRb.TryGetValue(player.userID, out playerData))
+                {
+                    playerData = new PlayerData()
+                    {
+                        DisplayName = player.displayName
+                    };
+                }
+                else
+                {
+                    var isCalledEconomicsApi = false;
+                    var isRustyBankBalance = false;
+
+                    var maxDepositBalance = GetMaxDepositBalance(player);
+
+                    if (maxDepositBalance < playerData.Balance + depositAmount)
+                    {
+                        CreateFadeUI(player, lang.GetMessage("BalanceExceedsLimit", this));
+                        return;
+                    }
+
+                    try
+                    {
+                        var apiResult = Economics?.Call("Withdraw", player.userID, cost);
+                        if (apiResult == null || !(bool)apiResult)
+                        {
+                            throw new Exception();
+                        }
+                        isCalledEconomicsApi = true;
+                        playerData.Balance += depositAmount;
+                        isRustyBankBalance = true;
+                        if (!isCalledEconomicsApi || !isRustyBankBalance)
+                        {
+                            throw new Exception();
+                        }
+                    }
+                    catch(Exception)
+                    {
+                        Puts("Deposit Exception");
+                        if (isCalledEconomicsApi)
+                        {
+                            Economics?.Call("Deposit", player.userID, depositAmount);
+                        }
+
+                        if (isRustyBankBalance)
+                        {
+                            playerData.Balance -= depositAmount;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                //
+            }
+            //UpdateSubUi(player);
+            CommandBankUi(player);
+        }
+        
+        /// <summary>
+        /// 出金処理コマンド
+        /// </summary>
+        /// <param name="args"></param>
+        /// <exception cref="Exception"></exception>
+        [ConsoleCommand("rustybank.withdraw")]
+        private void RustyBankWithdrawCommand(ConsoleSystem.Arg args)
+        {
+            var player = args.Connection.player as BasePlayer;
+            try
+            {
+                var withdrawAmount = Convert.ToDouble(args.Args[0]);
+
+                var fees = GetFees(player);
+
+                var cost = withdrawAmount + fees;
+                
+                if (!UseHasPerm(player))
+                {
+                    CreateFadeUI(player, lang.GetMessage("NoPerm", this));
+                    return;
+                }
+
+                //RustyBank残高チェック
+                PlayerData playerData;
+                if (!_dataPlayerRb.TryGetValue(player.userID, out playerData))
+                {
+                    CreateFadeUI(player, lang.GetMessage("NotExistsAccount", this));
+                }
+                else
+                {
+                    if (playerData.Balance < cost)
+                    {
+                        CreateFadeUI(player, lang.GetMessage("BalanceInsufficient", this));
+                        return;
+                    }
+
+                    bool isCalledEconomicsApi = false;
+                    bool isRustyBankBalance = false;
+                    try
+                    {
+                        var apiResult = Economics?.Call("Deposit", player.userID, withdrawAmount);
+                        if (apiResult == null || !(bool)apiResult)
+                        {
+                            throw new Exception();
+                        }
+                        isCalledEconomicsApi = true;
+
+                        playerData.Balance -= cost;
+                        isRustyBankBalance = true;
+
+                        if (!isCalledEconomicsApi || !isRustyBankBalance)
+                        {
+                            throw new Exception();
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        if (isCalledEconomicsApi)
+                        {
+                            Economics?.Call("Withdraw", player.userID, withdrawAmount);
+                        }
+
+                        if (isRustyBankBalance)
+                        {
+                            playerData.Balance += withdrawAmount;
+                        }
+
+                    }
+                }
+            }
+            catch
+            {
+                //
+            }
+            //UpdateSubUi(player);
+            CommandBankUi(player);
+        }
+
+        [ConsoleCommand("rustybank.createaccount")]
+        private void RustyBankCreateAccountCommand(ConsoleSystem.Arg args)
+        {
+            var player = args.Connection.player as BasePlayer;
+
+            double initialDeposit = 500;
+            //Economics残高チェック
+            double inHand;
+            GetPossession(player, out inHand);
+
+            var fees = GetFees(player);
+
+            var cost = initialDeposit + fees;
+
+            if (cost <= inHand)
+            {
+                PlayerData playerData;
+                if (_dataPlayerRb.TryGetValue(player.userID, out playerData))
+                {
+                    return;
+                }
+                else
+                {
+                    var apiResult = Economics?.Call("Withdraw", player.userID, cost);
+                    if (apiResult == null || !(bool)apiResult)
+                    {
+                        CreateFadeUI(player, lang.GetMessage("InternalError", this));
+                        return;
+                    }
+
+                    playerData = new PlayerData()
+                    {
+                        DisplayName = player.displayName,
+                        Balance = initialDeposit
+                    };
+                    _dataPlayerRb.Add(player.userID, playerData);
+                }
+            }
+            else
+            {
+                CreateFadeUI(player, lang.GetMessage("DoNotHavePossession", this));
+                return;
+            }
+
+            FuncDestroyUi(player);
+        }
+        
+        [ConsoleCommand("rustybank.createbankextensionmenu")]
+        private void RustyBankCreateBankExtension(ConsoleSystem.Arg args)
+        {
+            var player = args.Connection.player as BasePlayer;
+            FuncDestroyUi(player);
+            CreateExtensionPanel(player);
+        }
+        
+        [ConsoleCommand("rustybank.destroybankextensionmenu")]
+        private void RustyBankDestroyBankExtension(ConsoleSystem.Arg args)
+        {
+            var player = args.Connection.player as BasePlayer;
+            
+            var itemCounter = Convert.ToInt32(args.Args[0]);
+
+            FuncDestroyExtensionUi(player, itemCounter);
+            
+            CreateRustyBankMenu(player);
+        }
+        
+        [ConsoleCommand("rustybank.addbankextension")]
+        private void RustyBankAddBankExtension(ConsoleSystem.Arg args)
+        {
+            var player = args.Connection.player as BasePlayer;
+
+            if (args.Args.Length <= 0) return;
+
+            var mode = args.Args[0];
+
+            var amount = Convert.ToInt32(args.Args[1]);
+
+            switch (mode)
+            {
+                case "t":
+                    AddExtensionFromHand(player, amount);
+                    break;
+                case "b":
+                    AddExtensionFromBank(player, amount);
+                    break;
+                default:
+                    break;
+            }
+            CreateExtensionSubUI(player);
+        }
+
+        [ConsoleCommand("rustybank.createdwui")]
+        private void RustyBankDaWUi(ConsoleSystem.Arg args)
+        {
+            var player = args.Connection.player as BasePlayer;
+            
+            FuncDestroyUi(player);
+
+            if (args.Args.Length <= 0) return;
+            
+            var mode = args.Args[0];
+
+            CreateDaWPanel(player, mode);
+        }
+
+        [ConsoleCommand("rustybank.dw")]
+        private void DepositOrWithdraw(ConsoleSystem.Arg arg)
+        {
+            BasePlayer player = arg.Player();
+
+            if (arg.Args.Length != 2)
+            {
+                return;
+            }
+
+            var mode = arg.Args[0];
+            var amount = 0;
+
+            if (!int.TryParse(arg.Args[1], out amount))
+            {
+                CreateFadeUI(player, lang.GetMessage("NumericError", this));
+                return;
+            }
+
+            CreateTransactionConfirmationUI(player, mode, amount);
+        }
+        #endregion
+
+        #region UI
+        class UI
+        {
+            public static CuiElementContainer CreateElementContainer(string panelName, string color, string aMin, string aMax, bool cursor = false)
+            {
+                var newElement = new CuiElementContainer()
+                {
+                    {
+                        new CuiPanel
+                        {
+                            Image = {Color = color},
+                            RectTransform = {AnchorMin = aMin, AnchorMax = aMax},
+                            CursorEnabled = cursor
+                        },
+                        new CuiElement().Parent = "Overlay",
+                        panelName
+                    }
+                };
+                return newElement;
+            }
+            public static CuiElementContainer CreateElementContainerFade(string panelName, string color, string aMin, string aMax, float fadeInTime, float fadeOutTime, bool cursor = false)
+            {
+                var newElement = new CuiElementContainer()
+                {
+                    {
+                        new CuiPanel
+                        {
+                            Image = {Color = color, FadeIn = fadeInTime},
+                            RectTransform = {AnchorMin = aMin, AnchorMax = aMax},
+                            CursorEnabled = cursor,
+                            FadeOut = fadeOutTime,
+                        },
+                        new CuiElement().Parent = "Overlay",
+                        panelName
+                    }
+                };
+                return newElement;
+            }
+            public static void CreatePanel(ref CuiElementContainer container, string panel, string color, string aMin, string aMax, bool cursor = false)
+            {
+                container.Add(new CuiPanel
+                {
+                    Image = { Color = color },
+                    RectTransform = { AnchorMin = aMin, AnchorMax = aMax },
+                    CursorEnabled = cursor
+                },
+                panel);
+            }
+            public static void CreatePanelFade(ref CuiElementContainer container, string panel, string color, string aMin, string aMax, float fadeInTime, float fadeOutTime, bool cursor = false)
+            {
+                container.Add(new CuiPanel
+                    {
+                        Image = { Color = color, FadeIn = fadeInTime },
+                        RectTransform = { AnchorMin = aMin, AnchorMax = aMax },
+                        CursorEnabled = cursor,
+                        FadeOut = fadeOutTime
+                },
+                    panel);
+            }
+            public static void CreateLabel(ref CuiElementContainer container, string panel, string color, string text, int size, string aMin, string aMax, TextAnchor align = TextAnchor.MiddleCenter)
+            {
+                container.Add(new CuiLabel
+                {
+                    Text = { Color = color, FontSize = size, Align = align, Text = text },
+                    RectTransform = { AnchorMin = aMin, AnchorMax = aMax }
+                },
+                panel);
+            }
+            public static void CreateLabelFade(ref CuiElementContainer container, string panel, string color, string text, int size, string aMin, string aMax, float fadeInTime, float fadeOutTime, TextAnchor align = TextAnchor.MiddleCenter)
+            {
+                container.Add(new CuiLabel
+                    {
+                        Text = { Color = color, FontSize = size, Align = align, Text = text, FadeIn = fadeInTime },
+                        RectTransform = { AnchorMin = aMin, AnchorMax = aMax },
+                        FadeOut = fadeOutTime,
+                    },
+                    panel);
+            }
+            public static void CreateButton(ref CuiElementContainer container, string panel, string color, string text, int size, string aMin, string aMax, string command, TextAnchor align = TextAnchor.MiddleCenter)
+            {
+                container.Add(new CuiButton
+                {
+                    Button = { Color = color, Command = command },
+                    Text = { Text = text, FontSize = size, Align = align },
+                    RectTransform = { AnchorMin = aMin, AnchorMax = aMax }
+
+                }
+                , panel);
+            }
+
+            public static void CreateImage(ref CuiElementContainer container, string panel, string color, string imageUrl, string aMin, string aMax)
+            {
+                container.Add(new CuiElement
+                {
+                    Components =
+                    {
+                        new CuiRawImageComponent
+                        {
+                            Color = color,
+                            Url = imageUrl,
+                        },
+                        new CuiRectTransformComponent
+                        {
+                            AnchorMin = aMin,
+                            AnchorMax = aMax
+                        }
+                    }
+                });
+            }
+
+            public static void CreateInputField(ref CuiElementContainer container, string panel, string textColor, string outlineColor,
+                int fontSize, int limit, string aMin, string aMax, string command, TextAnchor align =  TextAnchor.LowerRight, string text="")
+            {
+                container.Add(new CuiElement
+                {
+                    Parent = panel,
+                    Components =
+                    {
+                        new CuiInputFieldComponent
+                        {
+                            Text = text,
+                            CharsLimit = limit,
+                            FontSize = fontSize,
+                            Color = textColor,
+                            Align =align,
+                            IsPassword = false,
+                            Command = command
+                        },
+                        new CuiRectTransformComponent
+                        {
+                            AnchorMin = aMin,
+                            AnchorMax = aMax
+                        },
+                        // new CuiOutlineComponent
+                        // {
+                        //     Color = outlineColor
+                        // }
+                    }
+                });
+            }
+            
+            public static string Color(string hexColor, float alpha)
+            {
+                if (hexColor.StartsWith("#"))
+                    hexColor = hexColor.TrimStart('#');
+                int red = int.Parse(hexColor.Substring(0, 2), NumberStyles.AllowHexSpecifier);
+                int green = int.Parse(hexColor.Substring(2, 2), NumberStyles.AllowHexSpecifier);
+                int blue = int.Parse(hexColor.Substring(4, 2), NumberStyles.AllowHexSpecifier);
+                return $"{(double)red / 255} {(double)green / 255} {(double)blue / 255} {alpha}";
+            }
+        }
         #endregion
 
         #region FindPlayer
@@ -1946,6 +1841,40 @@ namespace Oxide.Plugins
         #endregion
         
         #region Helper
+        private static class MathUtil
+        {
+            /// <summary>
+            /// 球の内側か
+            /// (x - a)^2 + (y - b)^2 + (z - c)^2 &gt;= r^2
+            /// </summary>
+            /// <param name="p">球の中心座標</param>
+            /// <param name="r">半径</param>
+            /// <param name="c">対象となる点</param>
+            /// <returns></returns>
+            public static bool InSphere(Vector3 p, float r, Vector3 c)
+            {
+                var sum = 0f;
+                for (var i = 0; i < 3; i++)
+                    sum += Mathf.Pow(p[i] - c[i], 2);
+                return sum <= Mathf.Pow(r, 2f);
+            }
+ 
+            /// <summary>
+            /// 円の内側か
+            /// (x - a)^2 + (y - b)^2 &gt;= r^2
+            /// </summary>
+            /// <param name="p">円の中心座標</param>
+            /// <param name="r">半径</param>
+            /// <param name="c">対象となる点</param>
+            /// <returns></returns>
+            public static bool InCircle(Vector2 p, float r, Vector2 c)
+            {
+                var sum = 0f;
+                for (var i = 0; i < 2; i++)
+                    sum += Mathf.Pow(p[i] - c[i], 2);
+                return sum <= Mathf.Pow(r, 2f);
+            }
+        }
         private class UnityVector3Converter : JsonConverter
         {
             public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
