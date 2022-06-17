@@ -7,7 +7,17 @@
  *	 預金枠拡張機能追加
  *　
  * 1.0.1
- *	 Typo修正 
+ *	 Typo修正
+ * 
+ * 1.1.0
+ *   入出金額をボタンではなく入力フィールドから入力するように変更
+ *
+ * 1.1.1
+ *   「use_only_ui」がTRUEのの状態で取引を行ったときに、権限エラーでUIが消える問題の修正
+ *    0以下の値を入力したときに取引が続行されてしまう問題の修正
+ * 
+ * 1.1.2
+ *    枠拡張の支払いを口座残高から行った場合残高がマイナスになっても支払いができる問題の修正
  */
 
 using System;
@@ -15,6 +25,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using ConVar;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
@@ -26,7 +37,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Rusty Bank", "babu77", "1.1.1")]
+    [Info("Rusty Bank", "babu77", "1.1.2")]
     [Description("This is a simple plugin that adds banking functionality.")]
     public class RustyBank : RustPlugin
     {
@@ -49,6 +60,7 @@ namespace Oxide.Plugins
         private const string DepositUiName = "RustyBankUIDeposit";
         private const string WithdrawUiName = "RustyBankUIWithdraw";
         private const string ShopUiName = "RustyBankUIShop";
+        private const string AdminUiName = "RustyBankUIAdmin";
         private Configurations Configs = new Configurations();
         private DynamicConfigFile _rbDataFile;
         private Dictionary<ulong, PlayerData> _dataPlayerRb;
@@ -201,10 +213,10 @@ namespace Oxide.Plugins
                 {"SyntaxError", "<color=red>SyntaxError</color>"},
                 {"PlayerNotFound", "Specified player not found."},
                 {"PlayerDataNotFound", "The data for the specified player could not be found."},
-                {"TargetPlayerDidNotHavePerm", "{target} did not have permission."},
+                //{"TargetPlayerDidNotHavePerm", "{target} did not have permission."},
                 {"BalanceExceedsLimit", "Unable to deposit because the bank balance exceeds the limit."},
                 {"DoNotHavePossession", "You don't have enough money in your possession."},
-                {"BalanceInsufficient.", "Your balance is insufficient."},
+                {"BalanceInsufficient", "Your balance is insufficient."},
                 {"NotExistsAccount", "Your don't have account."},
                 {"SwitchAddMode", "You have switched to additional mode."},
                 {"SwitchRemoveMode", "You have switched to remove mode."},
@@ -212,9 +224,10 @@ namespace Oxide.Plugins
                 {"AlreadyRemoveMode", "You have already switched to the remove mode."},
                 {"TimeoutAddMode", "Additional mode timed out."},
                 {"TimeoutRemoveMode", "Remove mode timed out."},
-                {"MultiplePlayers", "Multiple players found."},
+                //{"MultiplePlayers", "Multiple players found."},
                 {"NumericError", "Non-numeric input."},
-                {"NumericalIntegrityError", "Must be greater than 0."}
+                {"NumericalIntegrityError", "Must be greater than 0."},
+                {"ExpansionSlotLimitExceeded", "The maximum number of balance expansion slots available for purchase has been exceeded."}
             }, this);
         }
 
@@ -680,14 +693,23 @@ namespace Oxide.Plugins
                 return;
             }
             
-            //口座残高確認
-            
+            //拡張枠計算
+            var extensionValue = amount * Configs.ExtensionAmount;
+
             //現在の預金上限確認
             var maxDepositBalance = GetMaxDepositBalance(player);
             
             //現在の預金上限+ふやしたい枠 が上限を超えないか
-            if (Configs.ExtensionLimit < maxDepositBalance + (amount * Configs.ExtensionAmount))
+            if (Configs.ExtensionLimit < maxDepositBalance + extensionValue)
             {
+                CreateFadeUI(player, lang.GetMessage("ExpansionSlotLimitExceeded", this));
+                return;
+            }
+            
+            //口座残高が購入額を超えてないか確認
+            if (playerData.Balance < cost)
+            {
+                CreateFadeUI(player, lang.GetMessage("BalanceInsufficient", this));
                 return;
             }
             
@@ -748,49 +770,31 @@ namespace Oxide.Plugins
             UI.CreatePanel(ref mainUiElement, MainUiName, UI.Color("#000000", (float)0.9), "0.01 0.01", "0.99 0.99", true);
 
             //Label: Name
-            var nameLabelUiElement = UI.CreateElementContainer(NameLabelUiName, UI.Color("#f5f5f5", (float)0.5), "0.01 0.90", "0.5 0.99");
+            var nameLabelUiElement = UI.CreateElementContainer(NameLabelUiName, UI.Color("#f5f5f5", (float)0.5), "0.01 0.90", "0.3 0.99");
             UI.CreateLabel(ref nameLabelUiElement, NameLabelUiName, UI.Color("#FFA500", (float)1.0), Configs.ShowVersion? $"{this.Title} Ver.{this.Version}" : $"{this.Title}", 30, "0 0", "1 1");
 
-            var opMenuUiElement = UI.CreateElementContainer(OpMenuUiName, UI.Color("#f5f5f5", (float)0.4), "0.01 0.10", "0.99 0.75");
-            //入金
-            UI.CreateButton(ref opMenuUiElement, OpMenuUiName, UI.Color("#000000", (float)0.75), "入金", 50, "0.05 0.25", "0.45 0.75", "rustybank.createdwui deposit");
-            //UI.CreateLabel(ref depositUiElement, DepositUiName, "", "入金", 25, "0.05 0.85", "0.95 0.99");
-            //Deposit
-            // UI.CreateButton(ref depositUiElement, DepositUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{1000:#,0}</color>", 20, "0.02 0.63", "0.49 0.84", "rustybank.deposit 1000");
-            // UI.CreateButton(ref depositUiElement, DepositUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{5000:#,0}</color>", 20, "0.52 0.63", "0.98 0.84", "rustybank.deposit 5000");
-            // UI.CreateButton(ref depositUiElement, DepositUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{10000:#,0}</color>", 20, "0.02 0.32", "0.49 0.61", "rustybank.deposit 10000");
-            // UI.CreateButton(ref depositUiElement, DepositUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{50000:#,0}</color>", 20, "0.52 0.32", "0.98 0.61", "rustybank.deposit 50000");
-            // UI.CreateButton(ref depositUiElement, DepositUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{100000:#,0}</color>", 20, "0.02 0.01", "0.49 0.3", "rustybank.deposit 100000");
-            // if (npc != null)
-            // {
-            //     UI.CreateButton(ref depositUiElement, DepositUiName, UI.Color("#000000", (float)0.75), "<color=#FFFFFF>コマンドで入金</color>", 20, "0.52 0.01", "0.98 0.3", $"rustybank.addcustomtransactiondata withdraw {npc.transform.position.x} {npc.transform.position.y} {npc.transform.position.z}");
-            // }
-            //UI.CreateInputField(ref depositUiElement, DepositUiName, UI.Color("#ffff00", (float)1.00), UI.Color("#ffff00", (float)1.00), 50, 8, "0 0", "1 1", "rustybank.mes",TextAnchor.MiddleCenter, "12345678");
-
-
-            //出金
-            UI.CreateButton(ref opMenuUiElement, OpMenuUiName, UI.Color("#000000", (float)0.75), "出金", 50, "0.55 0.25", "0.95 0.75", "rustybank.createdwui withdraw");
-            // var withdrawUiElement = UI.CreateElementContainer(WithdrawUiName, UI.Color("#f5f5f5", (float)0.4), "0.525 0.10", "0.99 0.75");
-            // UI.CreateLabel(ref withdrawUiElement, WithdrawUiName, "", "出金", 25, "0.05 0.85", "0.95 0.99");
-            // //Withdraw
-            // UI.CreateButton(ref withdrawUiElement, WithdrawUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{1000:#,0}</color>", 20, "0.02 0.63", "0.49 0.84", "rustybank.withdraw 1000");
-            // UI.CreateButton(ref withdrawUiElement, WithdrawUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{5000:#,0}</color>", 20, "0.52 0.63", "0.98 0.84", "rustybank.withdraw 5000");
-            // UI.CreateButton(ref withdrawUiElement, WithdrawUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{10000:#,0}</color>", 20, "0.02 0.32", "0.49 0.61", "rustybank.withdraw 10000");
-            // UI.CreateButton(ref withdrawUiElement, WithdrawUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{50000:#,0}</color>", 20, "0.52 0.32", "0.98 0.61", "rustybank.withdraw 50000");
-            // UI.CreateButton(ref withdrawUiElement, WithdrawUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>{100000:#,0}</color>", 20, "0.02 0.01", "0.49 0.3", "rustybank.withdraw 100000");
-            // if (npc != null)
-            // {
-            //     UI.CreateButton(ref withdrawUiElement, WithdrawUiName, UI.Color("#000000", (float)0.75), $"<color=#FFFFFF>コマンドで出金</color>", 20, "0.52 0.01", "0.98 0.3", $"rustybank.addcustomtransactiondata deposit {npc.transform.position.x} {npc.transform.position.y} {npc.transform.position.z}");
-            // }
-
+            //管理パネル
+            if (permission.UserHasPermission(player.UserIDString, PermAdmin))
+            {
+                UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#FFFF00", (float)1.0), "<color=#000000>管理</color>", 18, "0.4 0.92", "0.59 0.99", "rustybank.adminui");
+            }
+            
             //拡張
             if (Configs.IsExtension)
             {
-                UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#0000FF", (float)1.0), "<color=#FFFFFF>拡張</color>", 18, "0.56 0.92", "0.75 0.99", "rustybank.createbankextensionmenu");
+                UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#0000FF", (float)1.0), "<color=#FFFFFF>拡張</color>", 18, "0.6 0.92", "0.79 0.99", "rustybank.createbankextensionmenu");
             }
-
+            
             //Close
             UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#FF0000", (float)1.0), "<color=#FFFFFF>Close</color>", 18, "0.8 0.92", "0.99 0.99", "rustybank.destroyui");
+            
+            var opMenuUiElement = UI.CreateElementContainer(OpMenuUiName, UI.Color("#f5f5f5", (float)0.4), "0.01 0.10", "0.99 0.75");
+
+            //入金
+            UI.CreateButton(ref opMenuUiElement, OpMenuUiName, UI.Color("#000000", (float)0.75), "入金", 50, "0.05 0.25", "0.45 0.75", "rustybank.createdwui deposit");
+
+            //出金
+            UI.CreateButton(ref opMenuUiElement, OpMenuUiName, UI.Color("#000000", (float)0.75), "出金", 50, "0.55 0.25", "0.95 0.75", "rustybank.createdwui withdraw");
 
             //説明Label
             var fees = GetFees(player);
@@ -799,15 +803,10 @@ namespace Oxide.Plugins
             CuiHelper.AddUi(player, mainUiElement);
             CuiHelper.AddUi(player, nameLabelUiElement);
             CuiHelper.AddUi(player, opMenuUiElement);
-            // CuiHelper.AddUi(player, depositUiElement);
-            // CuiHelper.AddUi(player, withdrawUiElement);
             AddUiPanel(player, MainUiName);
             AddUiPanel(player, NameLabelUiName);
             AddUiPanel(player, OpMenuUiName);
-            // AddUiPanel(player, DepositUiName);
-            // AddUiPanel(player, WithdrawUiName);
-
-
+            
             //SubUI
             UpdateSubUi(player);
         }
@@ -832,12 +831,10 @@ namespace Oxide.Plugins
             double _possession;
             if (GetPossession(player, out _possession))
             {
-                //UI.CreateLabel(ref subUiElement, _SubUiName, "", $"Holdings:{_possession}", 30, "0.01 0.01", "0.50 0.9");
                 UI.CreateLabel(ref subUiElement, SubUiName, "", $"手持ち:{_possession:#,0}", 30, "0.01 0.01", "0.50 0.9");
             }
             else
             {
-                //UI.CreateLabel(ref subUiElement, _SubUiName, "", "Holdings:...", 30, "0.01 0.01", "0.50 0.9");
                 UI.CreateLabel(ref subUiElement, SubUiName, "", "手持ち:...", 30, "0.01 0.01", "0.50 0.9");
             }
 
@@ -845,12 +842,10 @@ namespace Oxide.Plugins
             var maxDepositBalance = GetMaxDepositBalance(player);
             if (GetAccountBalance(player, out _balance))
             {
-                //UI.CreateLabel(ref subUiElement, _SubUiName, "", $"Savings:{_balance}", 30, "0.51 0.01", "0.99 0.9");
                 UI.CreateLabel(ref subUiElement, SubUiName, "", $"預金:{_balance:#,0}/{maxDepositBalance:#,0}", 30, "0.51 0.01", "0.99 0.9");
             }
             else
             {
-                //UI.CreateLabel(ref subUiElement, _SubUiName, "", "Savings:...", 30, "0.51 0.8", "0.99 0.9");
                 UI.CreateLabel(ref subUiElement, SubUiName, "", $"預金:{_balance:#,0}/{maxDepositBalance:#,0}", 30, "0.51 0.01", "0.99 0.9");
             }
 
@@ -980,130 +975,6 @@ namespace Oxide.Plugins
             CuiHelper.AddUi(player, subUiElement);
             AddUiPanel(player, ExtensionSubUiName);
         }
-        
-        // private void CreateBankShopUi(BasePlayer player)
-        // {
-        //     //MainUI
-        //     var mainUiElement = UI.CreateElementContainer(MainUiName, UI.Color("#000000", (float) 0.75), "0.0 0.0", "1 1");
-        //     UI.CreatePanel(ref mainUiElement, MainUiName, UI.Color("#000000", (float)0.9), "0.01 0.01", "0.99 0.99", true);
-        //
-        //     //Label: Name
-        //     var nameLabelUiElement = UI.CreateElementContainer(NameLabelUiName, UI.Color("#f5f5f5", (float)0.5), "0.01 0.90", "0.5 0.99");
-        //     UI.CreateLabel(ref nameLabelUiElement, NameLabelUiName, UI.Color("#FFA500", (float)1.0), $"{this.Title} Ver.{this.Version}", 30, "0 0", "1 1");
-        //     
-        //     //Close
-        //     UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#FF0000", (float)1.0), "<color=#FFFFFF>Close</color>", 18, "0.8 0.92", "0.99 0.99", "rustybank.destroyui");
-        //     
-        //     //商品
-        //     var shopUiElement = UI.CreateElementContainer(ShopUiName, UI.Color("#f5f5f5", (float)0.4), "0.01 0.01", "0.99 0.85");
-        //     
-        //     UI.CreateButton(ref shopUiElement, ShopUiName, UI.Color("#FF0000", (float)1.0), "<color=#FFFFFF>Close</color>", 18, "0.8 0.92", "0.99 0.99", "");
-        //
-        //     CuiHelper.AddUi(player, mainUiElement);
-        //     CuiHelper.AddUi(player, nameLabelUiElement);
-        //     CuiHelper.AddUi(player, shopUiElement);
-        //     AddUiPanel(player, MainUiName);
-        //     AddUiPanel(player, NameLabelUiName);
-        //     AddUiPanel(player, ShopUiName);
-        // }
-        
-        //TODO: 販売UI
-        // private void CreateShopItemContainer(BasePlayer player, int num)
-        // {
-        //     int num1 = num + 1;
-        //     Vector2 posMin = CalcDRPos(num);
-        //     Vector2 dimemsions = new Vector2(0.115f, 0.125f);
-        //     Vector2 posMax = posMin + dimemsions;
-        //
-        //     string panelName = $"Entry{num}";
-        //
-        //     var dbEntry = UI.CreateElementContainer(panelName, "0 0 0 0", $"{posMin.x} {posMin.y}", $"{posMax.x} {posMax.y}");
-        //     UI.CreatePanel(ref dbEntry, panelName, UI.Color("#F0F0F0", (float)0.5), $"0 0", $"1 1");
-        //
-        //     string bCommand = "";
-        //     string bText = "";
-        //     string bColor = "";
-        //
-        //     PlayerData pData;
-        //     DateTime lTime;
-        //
-        //     TimeSpan interval;
-        //
-        //     DRP.TryGetValue(player.UserIDString, out pData);
-        //     lTime = pData.LastTime;
-        //     interval = now - lTime;
-        //
-        //
-        //     if (num1 < DCounter)
-        //     {
-        //         bText = "Expired";
-        //         bColor = UI.Color("#9F9F9F", (float)0.5);
-        //     }
-        //     else if (DCounter < num1)
-        //     {
-        //         bText = "X";
-        //         bColor = UI.Color("#FF0000", (float)0.5);
-        //     }
-        //     else
-        //     {
-        //         if (interval.Days < 1 && DCounter != 1)
-        //         {
-        //             bText = "X";
-        //             bColor = UI.Color("#FF0000", (float)0.5);
-        //         }
-        //         else
-        //         {
-        //             bText = "Get";
-        //             bColor = UI.Color("#00FF00", (float)0.5);
-        //             bCommand = $"GetReward {num}";
-        //         }
-        //     }
-        //
-        //     UI.CreateButton(ref dbEntry, panelName, bColor, bText, 14, $"0.72 0.80", $"0.98 0.97", bCommand);
-        //
-        //     string rewards = bShortname[num];
-        //     int amount = bAmount[num];
-        //
-        //     string info = $"Rewards: {rewards}\nAmount: {amount}";
-        //
-        //     UI.CreateLabel(ref dbEntry, panelName, "", $"Day{num1}", 16, $"0.02 0.8", "0.72 1.0", TextAnchor.MiddleLeft);
-        //     UI.CreateLabel(ref dbEntry, panelName, bColor, info, 14, $"0.02 0.01", "0.98 0.78", TextAnchor.UpperLeft);
-        //
-        //     CuiHelper.AddUi(player, dbEntry);
-        // }
-        //
-        // private Vector2 CalcDRPos(int num)
-        // {
-        //     Vector2 position = new Vector2(0.1325f, 0.775f);
-        //     Vector2 dimensions = new Vector2(0.115f, 0.125f);
-        //     float offsetY = 0f;
-        //     float offsetX = 0;
-        //     if (0 <= num && num < 7)
-        //     {
-        //         offsetX = (0.005f + dimensions.x) * num;
-        //     }
-        //     if (6 < num && num < 14)
-        //     {
-        //         offsetX = (0.005f + dimensions.x) * (num - 7);
-        //         offsetY = (-0.008f - dimensions.y) * 1;
-        //     }
-        //     if (13 < num && num < 21)
-        //     {
-        //         offsetX = (0.005f + dimensions.x) * (num - 14);
-        //         offsetY = (-0.008f - dimensions.y) * 2;
-        //     }
-        //     if (20 < num && num < 28)
-        //     {
-        //         offsetX = (0.005f + dimensions.x) * (num - 21);
-        //         offsetY = (-0.008f - dimensions.y) * 3;
-        //     }
-        //     if (27 < num && num < 31)
-        //     {
-        //         offsetX = (0.005f + dimensions.x) * (num - 28);
-        //         offsetY = (-0.008f - dimensions.y) * 4;
-        //     }
-        //     return new Vector2(position.x + offsetX, position.y + offsetY);
-        // }
 
         private void DestroyEntries(BasePlayer player)
         {
@@ -1219,6 +1090,26 @@ namespace Oxide.Plugins
             RustyBankUiCrate(player);
 
             return;
+        }
+
+        private void CreateAdminUi(BasePlayer player)
+        {
+            FuncDestroyUi(player);
+            
+            //MainUI
+            var mainUiElement = UI.CreateElementContainer(MainUiName, UI.Color("#000000", (float) 0.75), "0.0 0.0", "1 1");
+            UI.CreatePanel(ref mainUiElement, MainUiName, UI.Color("#000000", (float)0.9), "0.01 0.01", "0.99 0.99", true);
+            
+            //Label: Name
+            var nameLabelUiElement = UI.CreateElementContainer(NameLabelUiName, UI.Color("#f5f5f5", (float)0.5), "0.01 0.90", "0.3 0.99");
+            UI.CreateLabel(ref nameLabelUiElement, NameLabelUiName, UI.Color("#FFA500", (float)1.0), Configs.ShowVersion? $"{this.Title} Ver.{this.Version}" : $"{this.Title}", 30, "0 0", "1 1");
+
+            //Close
+            UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#FF0000", (float)1.0), "<color=#FFFFFF>戻る</color>", 18, "0.8 0.92", "0.99 0.99", "rustybank.bankui");
+            
+            //AdminUI
+            var adminUiElement = UI.CreateElementContainer(AdminUiName, UI.Color("#f5f5f5", (float)0.4), "0 0", "1 0.9");
+            UI.CreatePanel(ref adminUiElement, AdminUiName, UI.Color("#f5f5f5", (float)0.4), "0 0", "1 1", true);
         }
         #endregion
 
@@ -1653,6 +1544,15 @@ namespace Oxide.Plugins
 
             CreateTransactionConfirmationUI(player, mode, amount);
         }
+
+        [ConsoleCommand("rustybank.adminui")]
+        private void CommandAdminUi(ConsoleSystem.Arg arg)
+        {
+            BasePlayer player = arg.Player();
+            
+            FuncDestroyUi(player);
+            CreateAdminUi(player);
+        }
         #endregion
 
         #region UI
@@ -1808,63 +1708,6 @@ namespace Oxide.Plugins
         }
         #endregion
 
-        #region FindPlayer
-        private ulong FindPlayersSingleId(string nameORidORip, BasePlayer player)
-        {
-            var targets = FindPlayers(nameORidORip);
-            if (targets.Count > 1)
-            {
-                SendMessage(player, lang.GetMessage("MultiplePlayers", this) + string.Join(",", targets.Select(p => p.displayName).ToArray()));
-                return 0;
-            }
-            ulong userId;
-            if (targets.Count <= 0)
-            {
-                SendMessage(player, lang.GetMessage("PlayerNotFound", this));
-                return 0;
-            }
-            else userId = targets.First().userID;
-            return userId;
-        }
-        private BasePlayer FindPlayerSingle(string nameORidORip, BasePlayer player)
-        {
-            var targets = FindPlayers(nameORidORip);
-            if (targets.Count <= 0)
-            {
-                SendMessage(player, lang.GetMessage("PlayerNotFound", this));
-                return null;
-            }
-            if (targets.Count>1)
-            {
-                SendMessage(player, lang.GetMessage("MultiplePlayers", this) + string.Join(",", targets.Select(p => p.displayName).ToArray()));
-                return null;
-            }
-            return targets.First();
-        }
-        private static HashSet<BasePlayer> FindPlayers(string nameORidORip) 
-        {
-            var players = new HashSet<BasePlayer>();
-            if (string.IsNullOrEmpty(nameORidORip)) return players;
-            foreach (var activePlayer in BasePlayer.activePlayerList)
-            {
-                if (activePlayer.UserIDString.Equals(nameORidORip))
-                    players.Add(activePlayer);
-                else if (!string.IsNullOrEmpty(activePlayer.displayName) && activePlayer.displayName.Contains(nameORidORip, CompareOptions.IgnoreCase))
-                    players.Add(activePlayer);
-                else if (activePlayer.net?.connection != null && activePlayer.net.connection.ipaddress.Equals(nameORidORip))
-                    players.Add(activePlayer);
-            }
-            foreach (var sleepingPlayer in BasePlayer.sleepingPlayerList)
-            {
-                if (sleepingPlayer.UserIDString.Equals(nameORidORip))
-                    players.Add(sleepingPlayer);
-                else if (!string.IsNullOrEmpty(sleepingPlayer.displayName) && sleepingPlayer.displayName.Contains(nameORidORip, CompareOptions.IgnoreCase))
-                    players.Add(sleepingPlayer);
-            }
-            return players;
-        }
-        #endregion
-        
         #region Helper
         private static class MathUtil
         {
