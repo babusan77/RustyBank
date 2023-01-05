@@ -18,6 +18,11 @@
  * 
  * 1.1.2
  *    枠拡張の支払いを口座残高から行った場合残高がマイナスになっても支払いができる問題の修正
+ *
+ * 1.2.0
+ *    langを日本語と英語で分離
+ *    ユーザの言語設定が英語(デフォルト)意外だった場合に各言語のメッセージを表示するように変更
+ * 
  */
 
 using System;
@@ -37,7 +42,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Rusty Bank", "babu77", "1.1.2")]
+    [Info("Rusty Bank", "babu77", "1.2.0")]
     [Description("This is a simple plugin that adds banking functionality.")]
     public class RustyBank : RustPlugin
     {
@@ -647,7 +652,7 @@ namespace Oxide.Plugins
             }
             else
             {
-                SendMessage(player, lang.GetMessage("NoPerm", this));
+                SendMessage(player, lang.GetMessage("NoPerm", this, player.UserIDString));
             }
         }
 
@@ -728,14 +733,14 @@ namespace Oxide.Plugins
             //現在の預金上限+ふやしたい枠 が上限を超えないか
             if (Configs.ExtensionLimit < maxDepositBalance + extensionValue)
             {
-                CreateFadeUI(player, lang.GetMessage("ExpansionSlotLimitExceeded", this));
+                CreateFadeUI(player, lang.GetMessage("ExpansionSlotLimitExceeded", this, player.UserIDString));
                 return;
             }
             
             //口座残高が購入額を超えてないか確認
             if (playerData.Balance < cost)
             {
-                CreateFadeUI(player, lang.GetMessage("BalanceInsufficient", this));
+                CreateFadeUI(player, lang.GetMessage("BalanceInsufficient", this, player.UserIDString));
                 return;
             }
             
@@ -1151,13 +1156,13 @@ namespace Oxide.Plugins
         {
             if (!permission.UserHasPermission(player.UserIDString, PermAdmin))
             {
-                SendMessage(player, lang.GetMessage("NoPerm", this));
+                SendMessage(player, lang.GetMessage("NoPerm", this, player.UserIDString));
                 return;
             }
             
             if (args == null || args.Length == 0 || 1 < args.Length)
             {
-                SendMessage(player, lang.GetMessage("SyntaxError", this));
+                SendMessage(player, lang.GetMessage("SyntaxError", this, player.UserIDString));
                 return;
             }
 
@@ -1167,18 +1172,18 @@ namespace Oxide.Plugins
                 {
                     if (_managedAddList.Contains(player.userID))
                     {
-                        SendMessage(player, lang.GetMessage("AlreadyAddMode", this));
+                        SendMessage(player, lang.GetMessage("AlreadyAddMode", this, player.UserIDString));
                     }
                     else
                     {
                         _managedAddList.Add(player.userID);
-                        SendMessage(player, lang.GetMessage("SwitchAddMode", this));
+                        SendMessage(player, lang.GetMessage("SwitchAddMode", this, player.UserIDString));
                         timer.Once(30f, () =>
                         {
                             if (_managedAddList.Contains(player.userID))
                             {
                                 _managedAddList.Remove(player.userID);
-                                SendMessage(player, lang.GetMessage("TimeoutAddMode", this));
+                                SendMessage(player, lang.GetMessage("TimeoutAddMode", this, player.UserIDString));
                             }
                         });
                     }
@@ -1189,18 +1194,18 @@ namespace Oxide.Plugins
                 {
                     if (_managedRemoveList.Contains(player.userID))
                     {
-                        SendMessage(player, lang.GetMessage("AlreadyRemoveMode", this));
+                        SendMessage(player, lang.GetMessage("AlreadyRemoveMode", this, player.UserIDString));
                     }
                     else
                     {
                         _managedRemoveList.Add(player.userID);
-                        SendMessage(player, lang.GetMessage("SwitchRemoveMode", this));
+                        SendMessage(player, lang.GetMessage("SwitchRemoveMode", this, player.UserIDString));
                         timer.Once(30f, () =>
                         {
                             if (_managedRemoveList.Contains(player.userID))
                             {
                                 _managedRemoveList.Remove(player.userID);
-                                SendMessage(player, lang.GetMessage("TimeoutRemoveMode", this));
+                                SendMessage(player, lang.GetMessage("TimeoutRemoveMode", this, player.UserIDString));
                             }
                         });
                     }
@@ -1226,7 +1231,7 @@ namespace Oxide.Plugins
             // }
             if (Configs.IsOnlyUi)
             {
-                SendMessage(player, lang.GetMessage("NoPerm", this));
+                SendMessage(player, lang.GetMessage("NoPerm", this, player.UserIDString));
                 return;
             }
             
@@ -1274,13 +1279,13 @@ namespace Oxide.Plugins
 
                 if (!UseHasPerm(player))
                 {
-                    CreateFadeUI(player, lang.GetMessage("NoPerm", this));
+                    CreateFadeUI(player, lang.GetMessage("NoPerm", this, player.UserIDString));
                     return;
                 }
 
                 if (depositAmount <= 0)
                 {
-                    CreateFadeUI(player, lang.GetMessage("NumericalIntegrityError", this));
+                    CreateFadeUI(player, lang.GetMessage("NumericalIntegrityError", this, player.UserIDString));
                     return;
                 }
 
@@ -1288,7 +1293,7 @@ namespace Oxide.Plugins
                 var possession = Convert.ToDouble(Economics?.Call("Balance", player.userID));
                 if (possession < cost)
                 {
-                    CreateFadeUI(player, lang.GetMessage("DoNotHavePossession", this));
+                    CreateFadeUI(player, lang.GetMessage("DoNotHavePossession", this, player.UserIDString));
                     return;
                 }
 
@@ -1310,7 +1315,7 @@ namespace Oxide.Plugins
 
                     if (maxDepositBalance < playerData.Balance + depositAmount)
                     {
-                        CreateFadeUI(player, lang.GetMessage("BalanceExceedsLimit", this));
+                        CreateFadeUI(player, lang.GetMessage("BalanceExceedsLimit", this, player.UserIDString));
                         return;
                     }
 
@@ -1371,13 +1376,13 @@ namespace Oxide.Plugins
                 
                 if (!UseHasPerm(player))
                 {
-                    CreateFadeUI(player, lang.GetMessage("NoPerm", this));
+                    CreateFadeUI(player, lang.GetMessage("NoPerm", this, player.UserIDString));
                     return;
                 }
                 
                 if (withdrawAmount <= 0)
                 {
-                    CreateFadeUI(player, lang.GetMessage("NumericalIntegrityError", this));
+                    CreateFadeUI(player, lang.GetMessage("NumericalIntegrityError", this, player.UserIDString));
                     return;
                 }
 
@@ -1385,13 +1390,13 @@ namespace Oxide.Plugins
                 PlayerData playerData;
                 if (!_dataPlayerRb.TryGetValue(player.userID, out playerData))
                 {
-                    CreateFadeUI(player, lang.GetMessage("NotExistsAccount", this));
+                    CreateFadeUI(player, lang.GetMessage("NotExistsAccount", this, player.UserIDString));
                 }
                 else
                 {
                     if (playerData.Balance < cost)
                     {
-                        CreateFadeUI(player, lang.GetMessage("BalanceInsufficient", this));
+                        CreateFadeUI(player, lang.GetMessage("BalanceInsufficient", this, player.UserIDString));
                         return;
                     }
 
@@ -1463,7 +1468,7 @@ namespace Oxide.Plugins
                     var apiResult = Economics?.Call("Withdraw", player.userID, cost);
                     if (apiResult == null || !(bool)apiResult)
                     {
-                        CreateFadeUI(player, lang.GetMessage("InternalError", this));
+                        CreateFadeUI(player, lang.GetMessage("InternalError", this, player.UserIDString));
                         return;
                     }
 
@@ -1477,7 +1482,7 @@ namespace Oxide.Plugins
             }
             else
             {
-                CreateFadeUI(player, lang.GetMessage("DoNotHavePossession", this));
+                CreateFadeUI(player, lang.GetMessage("DoNotHavePossession", this, player.UserIDString));
                 return;
             }
 
@@ -1558,13 +1563,13 @@ namespace Oxide.Plugins
 
             if (!int.TryParse(arg.Args[1], out amount))
             {
-                CreateFadeUI(player, lang.GetMessage("NumericError", this));
+                CreateFadeUI(player, lang.GetMessage("NumericError", this, player.UserIDString));
                 return;
             }
             
             if (amount <= 0)
             {
-                CreateFadeUI(player, lang.GetMessage("NumericalIntegrityError", this));
+                CreateFadeUI(player, lang.GetMessage("NumericalIntegrityError", this, player.UserIDString));
                 return;
             }
 
