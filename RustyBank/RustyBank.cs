@@ -19,10 +19,17 @@
  * 1.1.2
  *    枠拡張の支払いを口座残高から行った場合残高がマイナスになっても支払いができる問題の修正
  *
- * 1.2.0
+ * 1.2.0-β
  *    langを日本語と英語で分離
  *    ユーザの言語設定が英語(デフォルト)意外だった場合に各言語のメッセージを表示するように変更
  * 
+ */
+
+/*
+ * TODO
+ *    リファクタ
+ *    ハードコード
+ *    コイン必要数などのコンフィグ分離。langにハードコードしないように変数か
  */
 
 using System;
@@ -218,21 +225,39 @@ namespace Oxide.Plugins
                 {"SyntaxError", "<color=red>Syntax error</color>"},
                 {"PlayerNotFound", "Player not found."},
                 {"PlayerDataNotFound", "Player data not found."},
-                //{"TargetPlayerDidNotHavePerm", "{target} did not have permission."},
                 {"BalanceExceedsLimit", "Your balance has exceeded the limit. You cannot deposit."},
-                {"DoNotHavePossession", "Not enough money in possession."},
+                {"NotEnoughMoney", "Not enough money in possession."},
                 {"BalanceInsufficient", "Insufficient balance"},
-                {"NotExistsAccount", "You do not have an account."},
+                {"NotExistsAccount", "<color=#FFFFFF>You do not have an account.</color>"},
                 {"SwitchAddMode", "Switched to \"Add a NPC banker\" mode."},
                 {"SwitchRemoveMode", "Switched to \"Remove a NPC banker\" mode."},
                 {"AlreadyAddMode", "Already in \"Add a NPC banker\" mode."},
                 {"AlreadyRemoveMode", "Already in \"Remove a NPC banker\" mode."},
                 {"TimeoutAddMode", "\"Add a NPC banker\" mode timed out."},
                 {"TimeoutRemoveMode", "\"Remove a NPC banker\" mode timed out."},
-                //{"MultiplePlayers", "Multiple players found."},
                 {"NumericError", "Please enter a number."},
                 {"NumericalIntegrityError", "Please enter a number bigger than zero."},
-                {"ExpansionSlotLimitExceeded", "You've exceeded the maximum balance expansion limit available for purchase."}
+                {"ExpansionSlotLimitExceeded", "You've exceeded the maximum balance expansion limit available for purchase."},
+                {"CostForOpenAccount", "<color=#FFFFFF>You need {cost} to open an account.</color>"},
+                {"OpenAnAccount", "<color=#FFFFFF>Open an account.</color>"},
+                {"Close", "<color=#FFFFFF>Close</color>"},
+                {"Manage", "<color=#000000>Manage</color>"},
+                {"Expand", "<color=#FFFFFF>Expand</color>"},
+                {"DepositT", "Deposit"},
+                {"WithdrawT", "Withdraw"},
+                {"TransactionFees", "<color=#FFFFFF>Transaction fees: {fees}</color>"},
+                {"MoneyInPossession", "Money in possession"},
+                {"DepositY", "Deposit"},
+                {"EnterAnAmount.", "Please enter an amount."},
+                {"DepositD", "Deposit"},
+                {"WithdrawD", "Withdraw"},
+                {"ExpandAccountDepositLimits", "You can expand your account deposit limits."},
+                {"OneUnitOfExpansion", "One unit of expansion (additional 10,000 coins for deposit) can be purchased with 100,000 coins. (500,000 coins maximum)"},
+                {"PurchaseWithTheMoneyInPossession", "Purchase with the money in possession."},
+                {"WithdrawFromAnAccount", "Withdraw from your account."},
+                {"CurrentDepositLimit", "Current Deposit Limit"},
+                {"ConfirmDeposit", "Do you want to deposit the money? Amount: {amount}"},
+                {"ConfirmWithdraw", "Do you want to withdraw the money? Amount: {amount}"},
             }, this);
             
             lang.RegisterMessages(new Dictionary<string, string>
@@ -244,21 +269,39 @@ namespace Oxide.Plugins
                 {"SyntaxError", "<color=red>構文エラー</color>"},
                 {"PlayerNotFound", "プレイヤーが見つかりません。"},
                 {"PlayerDataNotFound", "プレイヤーデータが見つかりません。"},
-                //{"TargetPlayerDidNotHavePerm", "{target} did not have permission."},
                 {"BalanceExceedsLimit", "残高が限度額を超えたため、入金できません。"},
-                {"DoNotHavePossession", "所持金が足りません。"},
+                {"NotEnoughMoney", "所持金が足りません。"},
                 {"BalanceInsufficient", "口座残高が不足しています。"},
-                {"NotExistsAccount", "口座が開設されていません。"},
+                {"NotExistsAccount", "<color=#FFFFFF>口座が開設されていません。</color>"},
                 {"SwitchAddMode", "銀行員追加モードに切り替わりました。"},
                 {"SwitchRemoveMode", "銀行員削除モードに切り替わりました。"},
                 {"AlreadyAddMode", "既に銀行員追加モードです。"},
                 {"AlreadyRemoveMode", "既に銀行員削除モードです。"},
                 {"TimeoutAddMode", "銀行員追加モードがタイムアウトしました。"},
                 {"TimeoutRemoveMode", "銀行員削除モードがタイムアウトしました。"},
-                //{"MultiplePlayers", "Multiple players found."},
                 {"NumericError", "数値でない文字が入力されました。"},
                 {"NumericalIntegrityError", "0以上である必要があります。"},
-                {"ExpansionSlotLimitExceeded", "購入可能な残高拡張枠の上限を超えています。"}
+                {"ExpansionSlotLimitExceeded", "購入可能な残高拡張枠の上限を超えています。"},
+                {"CostForOpenAccount", "<color=#FFFFFF>口座の開設には{cost}必要です。</color>"},
+                {"OpenAnAccount", "<color=#FFFFFF>アカウントを作成する</color>"},
+                {"Close", "<color=#FFFFFF>閉じる</color>"},
+                {"Manage", "<color=#000000>管理</color>"},
+                {"Expand", "<color=#FFFFFF>拡張</color>"},
+                {"DepositT", "入金"},
+                {"WithdrawT", "出金"},
+                {"TransactionFees", "<color=#FFFFFF>取引手数料: {fees}</color>"},
+                {"MoneyInPossession", "手持ち"},
+                {"DepositY", "預金"},
+                {"EnterAnAmount.", "金額を入力してください"},
+                {"DepositD", "入金する"},
+                {"WithdrawD", "出金する"},
+                {"ExpandAccountDepositLimits", "口座預金枠の拡張ができます。"},
+                {"OneUnitOfExpansion", "1口(預金枠追加10,000コイン)を100,000コインで拡張できます。(上限: 500,000コイン)"},
+                {"PurchaseWithTheMoneyInPossession", "手持金から購入"},
+                {"WithdrawFromAnAccount", "口座から引落"},
+                {"CurrentDepositLimit", "現在預金枠"},
+                {"ConfirmDeposit", "入金します。よろしいですか?入金額: {amount}"},
+                {"ConfirmWithdraw", "出金します。よろしいですか?出金額: {amount}"},
             }, this, "ja");
         }
 
@@ -768,6 +811,7 @@ namespace Oxide.Plugins
 
             //Label: Name
             var nameLabelUiElement = UI.CreateElementContainer(NameLabelUiName, UI.Color("#f5f5f5", (float)0.5), "0.01 0.90", "0.5 0.99");
+            //TODO: 消す
             UI.CreateLabel(ref nameLabelUiElement, NameLabelUiName, UI.Color("#FFA500", (float)1.0), $"{this.Title} Ver.{this.Version}", 30, "0 0", "1 1");
             UI.CreateLabel(ref nameLabelUiElement, NameLabelUiName, UI.Color("#FFA500", (float)1.0), Configs.ShowVersion? $"{this.Title} Ver.{this.Version}" : $"{this.Title}", 30, "0 0", "1 1");
 
@@ -778,12 +822,12 @@ namespace Oxide.Plugins
 
             var cost = initialDeposit + fees;
 
-            UI.CreateLabel(ref mainUiElement, MainUiName, UI.Color("#FFA500", (float)1.0), "<color=#FFFFFF>RustyBankアカウントがありません。</color>", 30, "0 0.5", "1 0.6");
-            UI.CreateLabel(ref mainUiElement, MainUiName, UI.Color("#FFA500", (float)1.0), $"<color=#FFFFFF>アカウントの作成には{cost}豚コインが必要です。</color>", 30, "0 0.4", "1 0.5");
-            UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#32CD32", (float)1.0), "<color=#FFFFFF>アカウントを作成する</color>", 18, "0.01 0.3", "0.99 0.4", "rustybank.createaccount");
+            UI.CreateLabel(ref mainUiElement, MainUiName, UI.Color("#FFA500", (float)1.0), lang.GetMessage("NotExistsAccount", this, player.UserIDString), 30, "0 0.5", "1 0.6");
+            UI.CreateLabel(ref mainUiElement, MainUiName, UI.Color("#FFA500", (float)1.0), lang.GetMessage("CostForOpenAccount", this, player.UserIDString).Replace("{cost}", cost.ToString("#,0")), 30, "0 0.4", "1 0.5");
+            UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#32CD32", (float)1.0), lang.GetMessage("OpenAnAccount", this, player.UserIDString), 18, "0.01 0.3", "0.99 0.4", "rustybank.createaccount");
 
             //Close
-            UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#FF0000", (float)1.0), "<color=#FFFFFF>Close</color>", 18, "0.8 0.92", "0.99 0.97", "rustybank.destroyui");
+            UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#FF0000", (float)1.0), lang.GetMessage("Close", this, player.UserIDString), 18, "0.8 0.92", "0.99 0.97", "rustybank.destroyui");
 
             CuiHelper.AddUi(player, mainUiElement);
             AddUiPanel(player, MainUiName);
@@ -807,29 +851,29 @@ namespace Oxide.Plugins
             //管理パネル
             if (permission.UserHasPermission(player.UserIDString, PermAdmin))
             {
-                UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#FFFF00", (float)1.0), "<color=#000000>管理</color>", 18, "0.4 0.92", "0.59 0.99", "rustybank.adminui");
+                UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#FFFF00", (float)1.0), lang.GetMessage("Manage", this, player.UserIDString), 18, "0.4 0.92", "0.59 0.99", "rustybank.adminui");
             }
             
             //拡張
             if (Configs.IsExtension)
             {
-                UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#0000FF", (float)1.0), "<color=#FFFFFF>拡張</color>", 18, "0.6 0.92", "0.79 0.99", "rustybank.createbankextensionmenu");
+                UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#0000FF", (float)1.0), lang.GetMessage("Expand", this, player.UserIDString), 18, "0.6 0.92", "0.79 0.99", "rustybank.createbankextensionmenu");
             }
             
             //Close
-            UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#FF0000", (float)1.0), "<color=#FFFFFF>Close</color>", 18, "0.8 0.92", "0.99 0.99", "rustybank.destroyui");
+            UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#FF0000", (float)1.0), lang.GetMessage("Close", this, player.UserIDString), 18, "0.8 0.92", "0.99 0.99", "rustybank.destroyui");
             
             var opMenuUiElement = UI.CreateElementContainer(OpMenuUiName, UI.Color("#f5f5f5", (float)0.4), "0.01 0.10", "0.99 0.75");
 
             //入金
-            UI.CreateButton(ref opMenuUiElement, OpMenuUiName, UI.Color("#000000", (float)0.75), "入金", 50, "0.05 0.25", "0.45 0.75", "rustybank.createdwui deposit");
+            UI.CreateButton(ref opMenuUiElement, OpMenuUiName, UI.Color("#000000", (float)0.75), lang.GetMessage("DepositT", this, player.UserIDString), 50, "0.05 0.25", "0.45 0.75", "rustybank.createdwui deposit");
 
             //出金
-            UI.CreateButton(ref opMenuUiElement, OpMenuUiName, UI.Color("#000000", (float)0.75), "出金", 50, "0.55 0.25", "0.95 0.75", "rustybank.createdwui withdraw");
+            UI.CreateButton(ref opMenuUiElement, OpMenuUiName, UI.Color("#000000", (float)0.75), lang.GetMessage("WithdrawT", this, player.UserIDString), 50, "0.55 0.25", "0.95 0.75", "rustybank.createdwui withdraw");
 
             //説明Label
             var fees = GetFees(player);
-            UI.CreateLabel(ref mainUiElement, MainUiName, UI.Color("#000000", (float)0.8), $"<color=#FFFFFF>取引手数料(Transaction Fees): {fees:#,0}</color>", 18, "0.1 0.03", "0.9 0.085");
+            UI.CreateLabel(ref mainUiElement, MainUiName, UI.Color("#000000", (float)0.8), lang.GetMessage("TransactionFees", this, player.UserIDString).Replace("fees", fees.ToString("#,0")), 18, "0.1 0.03", "0.9 0.085");
 
             CuiHelper.AddUi(player, mainUiElement);
             CuiHelper.AddUi(player, nameLabelUiElement);
@@ -852,6 +896,8 @@ namespace Oxide.Plugins
             {
                 DestroySubUi(player);
             }
+            
+            //TODO: ここから
 
             //SubUI
             var subUiElement = UI.CreateElementContainer(SubUiName, UI.Color("#000000", (float)0.0), "0.01 0.8", "0.99 0.9");
@@ -1293,7 +1339,7 @@ namespace Oxide.Plugins
                 var possession = Convert.ToDouble(Economics?.Call("Balance", player.userID));
                 if (possession < cost)
                 {
-                    CreateFadeUI(player, lang.GetMessage("DoNotHavePossession", this, player.UserIDString));
+                    CreateFadeUI(player, lang.GetMessage("NotEnoughMoney", this, player.UserIDString));
                     return;
                 }
 
@@ -1482,7 +1528,7 @@ namespace Oxide.Plugins
             }
             else
             {
-                CreateFadeUI(player, lang.GetMessage("DoNotHavePossession", this, player.UserIDString));
+                CreateFadeUI(player, lang.GetMessage("NotEnoughMoney", this, player.UserIDString));
                 return;
             }
 
