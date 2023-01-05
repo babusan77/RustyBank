@@ -207,28 +207,54 @@ namespace Oxide.Plugins
             lang.RegisterMessages(new Dictionary<string, string>
             {
                 {"NoPerm", "You don't have a permission."},
-                {"NoEconomics", "Can't find Economics Plugin."},
-                {"InternalError", "A serious error has occurred in the plugin. Please report this to the administrator." },
-                {"NotRun", "Plugin is not running." },
-                {"SyntaxError", "<color=red>SyntaxError</color>"},
-                {"PlayerNotFound", "Specified player not found."},
-                {"PlayerDataNotFound", "The data for the specified player could not be found."},
+                {"NoEconomics", "Economics plugin not found."},
+                {"InternalError", "A serious error has occurred. Please contact the admin." },
+                {"NotRun", "Plugin not working." },
+                {"SyntaxError", "<color=red>Syntax error</color>"},
+                {"PlayerNotFound", "Player not found."},
+                {"PlayerDataNotFound", "Player data not found."},
                 //{"TargetPlayerDidNotHavePerm", "{target} did not have permission."},
-                {"BalanceExceedsLimit", "Unable to deposit because the bank balance exceeds the limit."},
-                {"DoNotHavePossession", "You don't have enough money in your possession."},
-                {"BalanceInsufficient", "Your balance is insufficient."},
-                {"NotExistsAccount", "Your don't have account."},
-                {"SwitchAddMode", "You have switched to additional mode."},
-                {"SwitchRemoveMode", "You have switched to remove mode."},
-                {"AlreadyAddMode", "You have already switched to the additional mode."},
-                {"AlreadyRemoveMode", "You have already switched to the remove mode."},
-                {"TimeoutAddMode", "Additional mode timed out."},
-                {"TimeoutRemoveMode", "Remove mode timed out."},
+                {"BalanceExceedsLimit", "Your balance has exceeded the limit. You cannot deposit."},
+                {"DoNotHavePossession", "Not enough money in possession."},
+                {"BalanceInsufficient", "Insufficient balance"},
+                {"NotExistsAccount", "You do not have an account."},
+                {"SwitchAddMode", "Switched to \"Add a NPC banker\" mode."},
+                {"SwitchRemoveMode", "Switched to \"Remove a NPC banker\" mode."},
+                {"AlreadyAddMode", "Already in \"Add a NPC banker\" mode."},
+                {"AlreadyRemoveMode", "Already in \"Remove a NPC banker\" mode."},
+                {"TimeoutAddMode", "\"Add a NPC banker\" mode timed out."},
+                {"TimeoutRemoveMode", "\"Remove a NPC banker\" mode timed out."},
                 //{"MultiplePlayers", "Multiple players found."},
-                {"NumericError", "Non-numeric input."},
-                {"NumericalIntegrityError", "Must be greater than 0."},
-                {"ExpansionSlotLimitExceeded", "The maximum number of balance expansion slots available for purchase has been exceeded."}
+                {"NumericError", "Please enter a number."},
+                {"NumericalIntegrityError", "Please enter a number bigger than zero."},
+                {"ExpansionSlotLimitExceeded", "You've exceeded the maximum balance expansion limit available for purchase."}
             }, this);
+            
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                {"NoPerm", "権限がありません。"},
+                {"NoEconomics", "Economicsプラグインがロードされていません。"},
+                {"InternalError", "深刻なエラーが発生しました。管理者に報告してください。" },
+                {"NotRun", "プラグインが動いていません。" },
+                {"SyntaxError", "<color=red>構文エラー</color>"},
+                {"PlayerNotFound", "プレイヤーが見つかりません。"},
+                {"PlayerDataNotFound", "プレイヤーデータが見つかりません。"},
+                //{"TargetPlayerDidNotHavePerm", "{target} did not have permission."},
+                {"BalanceExceedsLimit", "残高が限度額を超えたため、入金できません。"},
+                {"DoNotHavePossession", "所持金が足りません。"},
+                {"BalanceInsufficient", "口座残高が不足しています。"},
+                {"NotExistsAccount", "口座が開設されていません。"},
+                {"SwitchAddMode", "銀行員追加モードに切り替わりました。"},
+                {"SwitchRemoveMode", "銀行員削除モードに切り替わりました。"},
+                {"AlreadyAddMode", "既に銀行員追加モードです。"},
+                {"AlreadyRemoveMode", "既に銀行員削除モードです。"},
+                {"TimeoutAddMode", "銀行員追加モードがタイムアウトしました。"},
+                {"TimeoutRemoveMode", "銀行員削除モードがタイムアウトしました。"},
+                //{"MultiplePlayers", "Multiple players found."},
+                {"NumericError", "数値でない文字が入力されました。"},
+                {"NumericalIntegrityError", "0以上である必要があります。"},
+                {"ExpansionSlotLimitExceeded", "購入可能な残高拡張枠の上限を超えています。"}
+            }, this, "ja");
         }
 
         /// <summary>
