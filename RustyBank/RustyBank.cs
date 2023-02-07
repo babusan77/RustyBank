@@ -248,16 +248,19 @@ namespace Oxide.Plugins
                 {"TransactionFees", "<color=#FFFFFF>Transaction fees: {fees}</color>"},
                 {"MoneyInPossession", "Money in possession"},
                 {"DepositY", "Deposit"},
-                {"EnterAnAmount.", "Please enter an amount."},
+                {"EnterAnAmount", "Please enter an amount."},
                 {"DepositD", "Deposit"},
                 {"WithdrawD", "Withdraw"},
                 {"ExpandAccountDepositLimits", "You can expand your account deposit limits."},
-                {"OneUnitOfExpansion", "One unit of expansion (additional 10,000 coins for deposit) can be purchased with 100,000 coins. (500,000 coins maximum)"},
-                {"PurchaseWithTheMoneyInPossession", "Purchase with the money in possession."},
-                {"WithdrawFromAnAccount", "Withdraw from your account."},
+                {"OneUnitOfExpansion", "One unit of expansion (additional {extensionAmount} coins for deposit) can be purchased with {extensionFee} coins. ({extensionLimit} coins maximum)"},
+                {"PurchaseWithTheMoneyInPossession", "<color=#FFFFFF>Purchase with the money in possession.</color>"},
+                {"WithdrawFromAnAccount", "<color=#FFFFFF>Withdraw from your account.</color>"},
                 {"CurrentDepositLimit", "Current Deposit Limit"},
                 {"ConfirmDeposit", "Do you want to deposit the money? Amount: {amount}"},
                 {"ConfirmWithdraw", "Do you want to withdraw the money? Amount: {amount}"},
+                {"Unit", "unit(s)"},
+                {"Coin", "coin(s)"},
+                {"Back", "<color=#FFFFFF>Back</color>"},
             }, this);
             
             lang.RegisterMessages(new Dictionary<string, string>
@@ -296,12 +299,15 @@ namespace Oxide.Plugins
                 {"DepositD", "入金する"},
                 {"WithdrawD", "出金する"},
                 {"ExpandAccountDepositLimits", "口座預金枠の拡張ができます。"},
-                {"OneUnitOfExpansion", "1口(預金枠追加10,000コイン)を100,000コインで拡張できます。(上限: 500,000コイン)"},
-                {"PurchaseWithTheMoneyInPossession", "手持金から購入"},
-                {"WithdrawFromAnAccount", "口座から引落"},
+                {"OneUnitOfExpansion", "1口(預金枠追加{extensionAmount}豚コイン)を{extensionFee}豚コインで拡張できます。(上限: {extensionLimit}豚コイン)"},
+                {"PurchaseWithTheMoneyInPossession", "<color=#FFFFFF>手持金から購入</color>"},
+                {"WithdrawFromAnAccount", "<color=#FFFFFF>口座から引落</color>"},
                 {"CurrentDepositLimit", "現在預金枠"},
                 {"ConfirmDeposit", "入金します。よろしいですか?入金額: {amount}"},
                 {"ConfirmWithdraw", "出金します。よろしいですか?出金額: {amount}"},
+                {"Unit", "口"},
+                {"Coin", "豚コイン"},
+                {"Back", "<color=#FFFFFF>戻る</color>"},
             }, this, "ja");
         }
 
@@ -908,22 +914,22 @@ namespace Oxide.Plugins
             double _possession;
             if (GetPossession(player, out _possession))
             {
-                UI.CreateLabel(ref subUiElement, SubUiName, "", $"手持ち:{_possession:#,0}", 30, "0.01 0.01", "0.50 0.9");
+                UI.CreateLabel(ref subUiElement, SubUiName, "", $"{lang.GetMessage("MoneyInPossession", this, player.UserIDString)}:{_possession:#,0}", 30, "0.01 0.01", "0.50 0.9");
             }
             else
             {
-                UI.CreateLabel(ref subUiElement, SubUiName, "", "手持ち:...", 30, "0.01 0.01", "0.50 0.9");
+                UI.CreateLabel(ref subUiElement, SubUiName, "", $"{lang.GetMessage("MoneyInPossession", this, player.UserIDString)}:...", 30, "0.01 0.01", "0.50 0.9");
             }
 
             double _balance;
             var maxDepositBalance = GetMaxDepositBalance(player);
             if (GetAccountBalance(player, out _balance))
             {
-                UI.CreateLabel(ref subUiElement, SubUiName, "", $"預金:{_balance:#,0}/{maxDepositBalance:#,0}", 30, "0.51 0.01", "0.99 0.9");
+                UI.CreateLabel(ref subUiElement, SubUiName, "", $"{lang.GetMessage("DepositY", this, player.UserIDString)}:{_balance:#,0}/{maxDepositBalance:#,0}", 30, "0.51 0.01", "0.99 0.9");
             }
             else
             {
-                UI.CreateLabel(ref subUiElement, SubUiName, "", $"預金:{_balance:#,0}/{maxDepositBalance:#,0}", 30, "0.51 0.01", "0.99 0.9");
+                UI.CreateLabel(ref subUiElement, SubUiName, "", $"{lang.GetMessage("DepositY", this, player.UserIDString)}:{_balance:#,0}/{maxDepositBalance:#,0}", 30, "0.51 0.01", "0.99 0.9");
             }
 
             CuiHelper.AddUi(player, subUiElement);
@@ -947,7 +953,7 @@ namespace Oxide.Plugins
 
             //入力UI
             var opMenuUiElement = UI.CreateElementContainer(OpMenuUiName, UI.Color("#f5f5f5", (float)0.4), "0.01 0.10", "0.99 0.75");
-            UI.CreateLabel(ref opMenuUiElement, OpMenuUiName, UI.Color("#FFFFFF", (float)1.0), $"↓金額を入力してください↓", 30, "0 0.75", "1 1");
+            UI.CreateLabel(ref opMenuUiElement, OpMenuUiName, UI.Color("#FFFFFF", (float)1.0), lang.GetMessage("EnterAnAmount", this, player.UserIDString), 30, "0 0.75", "1 1");
             UI.CreatePanel(ref opMenuUiElement, OpMenuUiName, UI.Color("#000000", (float)0.75), "0. 0.35", "1 0.65", true);
             UI.CreateInputField(ref opMenuUiElement, OpMenuUiName, UI.Color("#ffff00", (float)1.00), UI.Color("#ffff00", (float)1.00), 50, 8, "0 0", "1 1", $"rustybank.dw {mode}",TextAnchor.MiddleCenter, "0");
             
@@ -956,19 +962,19 @@ namespace Oxide.Plugins
             switch (mode)
             {
                 case "deposit":
-                    UI.CreateButton(ref DaWUiElement, DaWUiName, UI.Color("#47cc81",1f), "入金する", 25, "0 0", "1 1", "");
+                    UI.CreateButton(ref DaWUiElement, DaWUiName, UI.Color("#47cc81",1f), lang.GetMessage("DepositD", this, player.UserIDString), 25, "0 0", "1 1", "");
                     break;
                 case "withdraw":
-                    UI.CreateButton(ref DaWUiElement, DaWUiName, UI.Color("#47cc81",1f), "出金する", 25, "0 0", "1 1", "");
+                    UI.CreateButton(ref DaWUiElement, DaWUiName, UI.Color("#47cc81",1f), lang.GetMessage("WithdrawD", this, player.UserIDString), 25, "0 0", "1 1", "");
                     break;
             }
             
             //Close
-            UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#FF0000", (float)1.0), "<color=#FFFFFF>Close</color>", 18, "0.8 0.92", "0.99 0.99", "rustybank.destroyui");
+            UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#FF0000", (float)1.0), lang.GetMessage("Close", this, player.UserIDString), 18, "0.8 0.92", "0.99 0.99", "rustybank.destroyui");
             
             //説明Label
             var fees = GetFees(player);
-            UI.CreateLabel(ref mainUiElement, MainUiName, UI.Color("#000000", (float)0.8), $"<color=#FFFFFF>取引手数料(Transaction Fees): {fees:#,0}</color>", 18, "0.1 0.03", "0.9 0.085");
+            UI.CreateLabel(ref mainUiElement, MainUiName, UI.Color("#000000", (float)0.8), lang.GetMessage("TransactionFees", this, player.UserIDString).Replace("{fees}", fees.ToString("#,0")), 18, "0.1 0.03", "0.9 0.085");
             
             CuiHelper.AddUi(player, mainUiElement);
             CuiHelper.AddUi(player, nameLabelUiElement);
@@ -993,12 +999,12 @@ namespace Oxide.Plugins
             
             UI.CreatePanel(ref extensionUiElement, ExtensionUiName, UI.Color("#000000", (float)0.8), "0.0 0.0", "1.0 1.0", true);
             
-            UI.CreateLabel(ref extensionUiElement, ExtensionUiName, "", "口座預金枠の拡張ができます。", 20, "0.0 0.8", "1.0 0.99");
-            UI.CreateLabel(ref extensionUiElement, ExtensionUiName, "", $"1口(預金枠追加{Configs.ExtensionAmount:#,0}豚コイン)を{Configs.ExtensionFee:#,0}豚コインで拡張できます。(上限: {Configs.ExtensionLimit:#,0}豚コイン)", 20, "0.0 0.7", "1.0 0.89");
+            UI.CreateLabel(ref extensionUiElement, ExtensionUiName, "", lang.GetMessage("ExpandAccountDepositLimits", this, player.UserIDString), 20, "0.0 0.8", "1.0 0.99");
+            UI.CreateLabel(ref extensionUiElement, ExtensionUiName, "", lang.GetMessage("OneUnitOfExpansion", this, player.UserIDString).Replace("{extensionAmount}", Configs.ExtensionAmount.ToString("#,0")).Replace("{extensionFee}", Configs.ExtensionFee.ToString("#,0")).Replace("{extensionLimit}", Configs.ExtensionLimit.ToString("#,0")), 20, "0.0 0.7", "1.0 0.89");
             
             //UI.CreateButton(ref extensionUiElement, ExtensionUiName, UI.Color("#0000FF", (float)1.0), "<color=#FFFFFF>購入</color>", 18, "0.56 0.4", "0.75 0.65", "");
 
-            UI.CreateButton(ref extensionUiElement, ExtensionUiName, UI.Color("#FF0000", (float)1.0), "<color=#FFFFFF>Close</color>", 18, "0.8 0.92", "0.99 0.99", $"rustybank.destroybankextensionmenu 3");
+            UI.CreateButton(ref extensionUiElement, ExtensionUiName, UI.Color("#FF0000", (float)1.0), lang.GetMessage("Close", this, player.UserIDString), 18, "0.8 0.92", "0.99 0.99", $"rustybank.destroybankextensionmenu 3");
             
             CuiHelper.AddUi(player, extensionUiElement);
             AddUiPanel(player, ExtensionUiName);
@@ -1024,12 +1030,12 @@ namespace Oxide.Plugins
 
             var price = amount * Configs.ExtensionFee;
             
-            UI.CreateLabel(ref extensionItemsUiElement, panelName, "", $"{amount}口", 25, "0.0 0.75", "1.0 0.9");
-            UI.CreateLabel(ref extensionItemsUiElement, panelName, "", $"{price:#,0}豚コイン", 25, "0.0 0.60", "1.0 0.75");
-            UI.CreateButton(ref extensionItemsUiElement, panelName, UI.Color("#0000FF", (float)0.9), "<color=#FFFFFF>手持金から購入</color>", 18, "0.01 0.1", "0.4 0.3", $"rustybank.addbankextension t {amount}");
+            UI.CreateLabel(ref extensionItemsUiElement, panelName, "", $"{amount}{lang.GetMessage("Unit", this, player.UserIDString)}", 25, "0.0 0.75", "1.0 0.9");
+            UI.CreateLabel(ref extensionItemsUiElement, panelName, "", $"{price:#,0}{lang.GetMessage("Coin", this, player.UserIDString)}", 25, "0.0 0.60", "1.0 0.75");
+            UI.CreateButton(ref extensionItemsUiElement, panelName, UI.Color("#0000FF", (float)0.9), lang.GetMessage("PurchaseWithTheMoneyInPossession", this, player.UserIDString), 18, "0.01 0.1", "0.4 0.3", $"rustybank.addbankextension t {amount}");
             if ((amount*price) < GetMaxDepositBalance(player))
             {
-                UI.CreateButton(ref extensionItemsUiElement, panelName, UI.Color("#0000FF", (float)0.9), "<color=#FFFFFF>口座から引落</color>", 18, "0.6 0.1", "0.99 0.3", $"rustybank.addbankextension b {amount}");
+                UI.CreateButton(ref extensionItemsUiElement, panelName, UI.Color("#0000FF", (float)0.9), lang.GetMessage("WithdrawFromAnAccount", this, player.UserIDString), 18, "0.6 0.1", "0.99 0.3", $"rustybank.addbankextension b {amount}");
             }
             
             CuiHelper.AddUi(player, extensionItemsUiElement);
@@ -1047,7 +1053,7 @@ namespace Oxide.Plugins
             var subUiElement = UI.CreateElementContainer(ExtensionSubUiName, UI.Color("#000000", (float)0.0), "0.01 0.55", "0.99 0.65");
 
             //Label
-            UI.CreateLabel(ref subUiElement, ExtensionSubUiName, "", $"現在預金枠: {maxDepositBalance:#,0}", 20, "0.25 0.01", "0.75 0.9");
+            UI.CreateLabel(ref subUiElement, ExtensionSubUiName, "", $"{lang.GetMessage("CurrentDepositLimit", this, player.UserIDString)}: {maxDepositBalance:#,0}", 20, "0.25 0.01", "0.75 0.9");
             
             CuiHelper.AddUi(player, subUiElement);
             AddUiPanel(player, ExtensionSubUiName);
@@ -1138,14 +1144,14 @@ namespace Oxide.Plugins
             var opMenuUiElement = UI.CreateElementContainer(OpMenuUiName, UI.Color("#f5f5f5", (float)0.4), "0.01 0.10", "0.99 0.75");
             switch (mode){
                 case "deposit":
-                    UI.CreateLabel(ref opMenuUiElement, OpMenuUiName, UI.Color("#FFFFFF", (float)1.0), $"入金します。よろしいですか?入金額: {amount:#,0}", 30, "0 0.75", "1 1");
+                    UI.CreateLabel(ref opMenuUiElement, OpMenuUiName, UI.Color("#FFFFFF", (float)1.0), lang.GetMessage("ConfirmDeposit", this, player.UserIDString).Replace("{amount}", amount.ToString("#,0")), 30, "0 0.75", "1 1");
                     //OK
                     UI.CreateButton(ref opMenuUiElement, OpMenuUiName, UI.Color("#000000", (float)0.75), "YES", 50, "0.55 0.25", "0.95 0.75", $"rustybank.deposit {amount}");
                     //NO
                     UI.CreateButton(ref opMenuUiElement, OpMenuUiName, UI.Color("#000000", (float)0.75), "NO", 50, "0.05 0.25", "0.45 0.75", $"rustybank.bankui");
                     break;
                 case "withdraw":
-                    UI.CreateLabel(ref opMenuUiElement, OpMenuUiName, UI.Color("#FFFFFF", (float)1.0), $"出金します。よろしいですか?出金額: {amount:#,0}", 30, "0 0.75", "1 1");
+                    UI.CreateLabel(ref opMenuUiElement, OpMenuUiName, UI.Color("#FFFFFF", (float)1.0), lang.GetMessage("ConfirmWithdraw", this, player.UserIDString).Replace("{amount}", amount.ToString("#,0")), 30, "0 0.75", "1 1");
                     //OK
                     UI.CreateButton(ref opMenuUiElement, OpMenuUiName, UI.Color("#000000", (float)0.75), "YES", 50, "0.55 0.25", "0.95 0.75", $"rustybank.withdraw {amount}");
                     //NO
@@ -1182,7 +1188,7 @@ namespace Oxide.Plugins
             UI.CreateLabel(ref nameLabelUiElement, NameLabelUiName, UI.Color("#FFA500", (float)1.0), Configs.ShowVersion? $"{this.Title} Ver.{this.Version}" : $"{this.Title}", 30, "0 0", "1 1");
 
             //Close
-            UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#FF0000", (float)1.0), "<color=#FFFFFF>戻る</color>", 18, "0.8 0.92", "0.99 0.99", "rustybank.bankui");
+            UI.CreateButton(ref mainUiElement, MainUiName, UI.Color("#FF0000", (float)1.0), lang.GetMessage("Back", this, player.UserIDString), 18, "0.8 0.92", "0.99 0.99", "rustybank.bankui");
             
             //AdminUI
             var adminUiElement = UI.CreateElementContainer(AdminUiName, UI.Color("#f5f5f5", (float)0.4), "0 0", "1 0.9");
