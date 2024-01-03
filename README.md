@@ -11,7 +11,7 @@ RustyBankは、BaburyServerのサーバプラグインです。
 |----|----|
 |/bankui|銀行UIを表示する(コンフィグの設定に依存)|
 |/banknpc add|NPCに対して動作ボタン(デフォルト'E')をクリックすることで、銀行UIを表示できる権限を付与する(HumanNPCのみ対応)|
-|/banknpc add|銀行UIを表示できるNPCに対して、表示権限を剥奪する(HumanNPCのみ対応)|
+|/banknpc remove|銀行UIを表示できるNPCに対して、表示権限を剥奪する(HumanNPCのみ対応)|
 
 ## 権限
 
