@@ -22,7 +22,10 @@
  * 1.2.0
  *    langを日本語と英語で分離
  *    ユーザの言語設定が英語(デフォルト)以外だった場合に各言語のメッセージを表示するように変更
- * 
+ *
+ * 1.2.1
+ *    LangファイルのTypo修正
+ *    表示タイミングで一部文字列の置換に失敗している問題の修正
  */
 
 using System;
@@ -42,7 +45,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Rusty Bank", "babu77", "1.2.0")]
+    [Info("Rusty Bank", "babu77", "1.2.1")]
     [Description("This is a simple plugin that adds banking functionality.")]
     public class RustyBank : RustPlugin
     {
@@ -288,7 +291,7 @@ namespace Oxide.Plugins
                 {"TransactionFees", "<color=#FFFFFF>取引手数料: {fees}</color>"},
                 {"MoneyInPossession", "手持ち"},
                 {"DepositY", "預金"},
-                {"EnterAnAmount.", "金額を入力してください"},
+                {"EnterAnAmount", "金額を入力してください"},
                 {"DepositD", "入金する"},
                 {"WithdrawD", "出金する"},
                 {"ExpandAccountDepositLimits", "口座預金枠の拡張ができます。"},
@@ -872,7 +875,7 @@ namespace Oxide.Plugins
 
             //説明Label
             var fees = GetFees(player);
-            UI.CreateLabel(ref mainUiElement, MainUiName, UI.Color("#000000", (float)0.8), lang.GetMessage("TransactionFees", this, player.UserIDString).Replace("fees", fees.ToString("#,0")), 18, "0.1 0.03", "0.9 0.085");
+            UI.CreateLabel(ref mainUiElement, MainUiName, UI.Color("#000000", (float)0.8), lang.GetMessage("TransactionFees", this, player.UserIDString).Replace("{fees}", fees.ToString("#,0")), 18, "0.1 0.03", "0.9 0.085");
 
             CuiHelper.AddUi(player, mainUiElement);
             CuiHelper.AddUi(player, nameLabelUiElement);
