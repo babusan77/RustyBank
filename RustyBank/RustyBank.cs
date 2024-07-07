@@ -26,6 +26,11 @@
  * 1.2.1
  *    LangファイルのTypo修正
  *    表示タイミングで一部文字列の置換に失敗している問題の修正
+ *
+ * 1.3.0
+ *    RUSTアップデートに対応(2024/7)
+ *       プレイヤーIDの取得ロジックの変更に対応
+ * 
  */
 
 using System;
@@ -33,7 +38,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using ConVar;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
@@ -45,7 +49,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Rusty Bank", "babu77", "1.2.1")]
+    [Info("Rusty Bank", "babu77", "1.3.0")]
     [Description("This is a simple plugin that adds banking functionality.")]
     public class RustyBank : RustPlugin
     {
@@ -370,7 +374,7 @@ namespace Oxide.Plugins
         void OnPlayerConnected(BasePlayer player)
         {
             PlayerData playerData;
-            if (_dataPlayerRb.TryGetValue(player.userID, out playerData))
+            if (_dataPlayerRb.TryGetValue(player.userID.Get(), out playerData))
             {
                 if (string.IsNullOrEmpty(playerData.DisplayName) || !playerData.DisplayName.Equals(player.displayName))
                 {
@@ -381,26 +385,26 @@ namespace Oxide.Plugins
 
         private void OnUseNPC(BasePlayer npc, BasePlayer player)
         {
-            if (_managedAddList.Contains(player.userID))
+            if (_managedAddList.Contains(player.userID.Get()))
             {
                 _dataNpc.Add(npc.userID);
                 
-                if (_managedAddList.Contains(player.userID))
+                if (_managedAddList.Contains(player.userID.Get()))
                 {
-                    _managedAddList.Remove(player.userID);
+                    _managedAddList.Remove(player.userID.Get());
                 }
                 else
                 {
                     return;
                 }
             }
-            else if (_managedRemoveList.Contains(player.userID))
+            else if (_managedRemoveList.Contains(player.userID.Get()))
             {
                 _dataNpc.Remove(npc.userID);
                 
-                if (_managedRemoveList.Contains(player.userID))
+                if (_managedRemoveList.Contains(player.userID.Get()))
                 {
-                    _managedRemoveList.Remove(player.userID);
+                    _managedRemoveList.Remove(player.userID.Get());
                 }
                 else
                 {
@@ -449,7 +453,7 @@ namespace Oxide.Plugins
             possession = 0.0;
             try
             {
-                possession = Convert.ToDouble(Economics?.Call("Balance", player.userID));
+                possession = Convert.ToDouble(Economics?.Call("Balance", player.userID.Get()));
                 //SendMessage(player, possession.ToString());
             }
             catch
@@ -474,13 +478,13 @@ namespace Oxide.Plugins
             {
                 PlayerData playerData;
 
-                if (!_dataPlayerRb.TryGetValue(player.userID, out playerData))
+                if (!_dataPlayerRb.TryGetValue(player.userID.Get(), out playerData))
                 {
                     playerData = new PlayerData()
                     {
                         DisplayName = player.displayName
                     };
-                    _dataPlayerRb.Add(player.userID, playerData);
+                    _dataPlayerRb.Add(player.userID.Get(), playerData);
                 }
 
                 balance = playerData.Balance;
@@ -549,7 +553,7 @@ namespace Oxide.Plugins
             var balance = 0.0;
 
             PlayerData playerData;
-            if (!_dataPlayerRb.TryGetValue(player.userID, out playerData))
+            if (!_dataPlayerRb.TryGetValue(player.userID.Get(), out playerData))
             {
                 return balance;
             }
@@ -599,7 +603,7 @@ namespace Oxide.Plugins
         private bool ExistsAccount(BasePlayer player)
         {
             PlayerData playerData;
-            return _dataPlayerRb.TryGetValue(player.userID, out playerData);
+            return _dataPlayerRb.TryGetValue(player.userID.Get(), out playerData);
         }
 
         /// <summary>
@@ -711,7 +715,7 @@ namespace Oxide.Plugins
             var cost = amount * Configs.ExtensionFee;
             //拡張容量確認
             PlayerData playerData;
-            if (!_dataPlayerRb.TryGetValue(player.userID, out playerData))
+            if (!_dataPlayerRb.TryGetValue(player.userID.Get(), out playerData))
             {
                 return;
             }
@@ -737,7 +741,7 @@ namespace Oxide.Plugins
             //支払い
             try
             {
-                var apiResult = Economics?.Call("Withdraw", player.userID, cost);
+                var apiResult = Economics?.Call("Withdraw", player.userID.Get(), cost);
                 if (apiResult == null || !(bool)apiResult)
                 {
                     throw new Exception();
@@ -749,7 +753,7 @@ namespace Oxide.Plugins
             }
             
             //データ格納
-            _dataPlayerRb[player.userID] = playerData;
+            _dataPlayerRb[player.userID.Get()] = playerData;
 
             return;
         }
@@ -764,7 +768,7 @@ namespace Oxide.Plugins
             //拡張容量確認
             var cost = amount * Configs.ExtensionFee;
             PlayerData playerData;
-            if (!_dataPlayerRb.TryGetValue(player.userID, out playerData))
+            if (!_dataPlayerRb.TryGetValue(player.userID.Get(), out playerData))
             {
                 return;
             }
@@ -796,7 +800,7 @@ namespace Oxide.Plugins
             playerData.Balance -= cost;
             
             //データ格納
-            _dataPlayerRb[player.userID] = playerData;
+            _dataPlayerRb[player.userID.Get()] = playerData;
 
             return;
         }
@@ -1059,14 +1063,14 @@ namespace Oxide.Plugins
         {
             CuiHelper.DestroyUi(player, "UIPanel");
             //CuiHelper.DestroyUi(player, "Entry");
-            if (OpenUiPanel.ContainsKey(player.userID))
+            if (OpenUiPanel.ContainsKey(player.userID.Get()))
             {
-                foreach (var entry in OpenUiPanel[player.userID])
+                foreach (var entry in OpenUiPanel[player.userID.Get()])
                 {
                     CuiHelper.DestroyUi(player, entry);
                 }
                     
-                OpenUiPanel.Remove(player.userID);
+                OpenUiPanel.Remove(player.userID.Get());
             }
         }
 
@@ -1090,32 +1094,32 @@ namespace Oxide.Plugins
 
         private void AddUiPanel(BasePlayer player, string panelName)
         {
-            if (!OpenUiPanel.ContainsKey(player.userID))
-                OpenUiPanel.Add(player.userID, new List<string>());
-            OpenUiPanel[player.userID].Add(panelName);
+            if (!OpenUiPanel.ContainsKey(player.userID.Get()))
+                OpenUiPanel.Add(player.userID.Get(), new List<string>());
+            OpenUiPanel[player.userID.Get()].Add(panelName);
         }
 
         private void RemoveUiPanel(BasePlayer player, string panelName)
         {
             List<string> uiList;
-            if (OpenUiPanel.TryGetValue(player.userID, out uiList))
+            if (OpenUiPanel.TryGetValue(player.userID.Get(), out uiList))
             {
                 if (uiList.Contains(panelName))
                 {
-                    OpenUiPanel[player.userID].Remove(panelName);
+                    OpenUiPanel[player.userID.Get()].Remove(panelName);
                 }
             }
         }
 
         private bool IsUiPanelOpened(BasePlayer player, string panelName)
         {
-            if (!OpenUiPanel.ContainsKey(player.userID))
+            if (!OpenUiPanel.ContainsKey(player.userID.Get()))
             {
                 return false;
             }
 
             List<string> uiList;
-            return OpenUiPanel.TryGetValue(player.userID, out uiList) && uiList.Contains(panelName);
+            return OpenUiPanel.TryGetValue(player.userID.Get(), out uiList) && uiList.Contains(panelName);
         }
 
         /// <summary>
@@ -1218,19 +1222,19 @@ namespace Oxide.Plugins
             {
                 case "add":
                 {
-                    if (_managedAddList.Contains(player.userID))
+                    if (_managedAddList.Contains(player.userID.Get()))
                     {
                         SendMessage(player, lang.GetMessage("AlreadyAddMode", this, player.UserIDString));
                     }
                     else
                     {
-                        _managedAddList.Add(player.userID);
+                        _managedAddList.Add(player.userID.Get());
                         SendMessage(player, lang.GetMessage("SwitchAddMode", this, player.UserIDString));
                         timer.Once(30f, () =>
                         {
-                            if (_managedAddList.Contains(player.userID))
+                            if (_managedAddList.Contains(player.userID.Get()))
                             {
-                                _managedAddList.Remove(player.userID);
+                                _managedAddList.Remove(player.userID.Get());
                                 SendMessage(player, lang.GetMessage("TimeoutAddMode", this, player.UserIDString));
                             }
                         });
@@ -1240,19 +1244,19 @@ namespace Oxide.Plugins
                 }
                 case "remove":
                 {
-                    if (_managedRemoveList.Contains(player.userID))
+                    if (_managedRemoveList.Contains(player.userID.Get()))
                     {
                         SendMessage(player, lang.GetMessage("AlreadyRemoveMode", this, player.UserIDString));
                     }
                     else
                     {
-                        _managedRemoveList.Add(player.userID);
+                        _managedRemoveList.Add(player.userID.Get());
                         SendMessage(player, lang.GetMessage("SwitchRemoveMode", this, player.UserIDString));
                         timer.Once(30f, () =>
                         {
-                            if (_managedRemoveList.Contains(player.userID))
+                            if (_managedRemoveList.Contains(player.userID.Get()))
                             {
-                                _managedRemoveList.Remove(player.userID);
+                                _managedRemoveList.Remove(player.userID.Get());
                                 SendMessage(player, lang.GetMessage("TimeoutRemoveMode", this, player.UserIDString));
                             }
                         });
@@ -1338,7 +1342,7 @@ namespace Oxide.Plugins
                 }
 
                 //Economics残高チェック
-                var possession = Convert.ToDouble(Economics?.Call("Balance", player.userID));
+                var possession = Convert.ToDouble(Economics?.Call("Balance", player.userID.Get()));
                 if (possession < cost)
                 {
                     CreateFadeUI(player, lang.GetMessage("NotEnoughMoney", this, player.UserIDString));
@@ -1347,7 +1351,7 @@ namespace Oxide.Plugins
 
                 //RustyBank残高チェック
                 PlayerData playerData;
-                if (!_dataPlayerRb.TryGetValue(player.userID, out playerData))
+                if (!_dataPlayerRb.TryGetValue(player.userID.Get(), out playerData))
                 {
                     playerData = new PlayerData()
                     {
@@ -1369,7 +1373,7 @@ namespace Oxide.Plugins
 
                     try
                     {
-                        var apiResult = Economics?.Call("Withdraw", player.userID, cost);
+                        var apiResult = Economics?.Call("Withdraw", player.userID.Get(), cost);
                         if (apiResult == null || !(bool)apiResult)
                         {
                             throw new Exception();
@@ -1387,7 +1391,7 @@ namespace Oxide.Plugins
                         Puts("Deposit Exception");
                         if (isCalledEconomicsApi)
                         {
-                            Economics?.Call("Deposit", player.userID, depositAmount);
+                            Economics?.Call("Deposit", player.userID.Get(), depositAmount);
                         }
 
                         if (isRustyBankBalance)
@@ -1436,7 +1440,7 @@ namespace Oxide.Plugins
 
                 //RustyBank残高チェック
                 PlayerData playerData;
-                if (!_dataPlayerRb.TryGetValue(player.userID, out playerData))
+                if (!_dataPlayerRb.TryGetValue(player.userID.Get(), out playerData))
                 {
                     CreateFadeUI(player, lang.GetMessage("NotExistsAccount", this, player.UserIDString));
                 }
@@ -1452,7 +1456,7 @@ namespace Oxide.Plugins
                     bool isRustyBankBalance = false;
                     try
                     {
-                        var apiResult = Economics?.Call("Deposit", player.userID, withdrawAmount);
+                        var apiResult = Economics?.Call("Deposit", player.userID.Get(), withdrawAmount);
                         if (apiResult == null || !(bool)apiResult)
                         {
                             throw new Exception();
@@ -1471,7 +1475,7 @@ namespace Oxide.Plugins
                     {
                         if (isCalledEconomicsApi)
                         {
-                            Economics?.Call("Withdraw", player.userID, withdrawAmount);
+                            Economics?.Call("Withdraw", player.userID.Get(), withdrawAmount);
                         }
 
                         if (isRustyBankBalance)
@@ -1507,13 +1511,13 @@ namespace Oxide.Plugins
             if (cost <= inHand)
             {
                 PlayerData playerData;
-                if (_dataPlayerRb.TryGetValue(player.userID, out playerData))
+                if (_dataPlayerRb.TryGetValue(player.userID.Get(), out playerData))
                 {
                     return;
                 }
                 else
                 {
-                    var apiResult = Economics?.Call("Withdraw", player.userID, cost);
+                    var apiResult = Economics?.Call("Withdraw", player.userID.Get(), cost);
                     if (apiResult == null || !(bool)apiResult)
                     {
                         CreateFadeUI(player, lang.GetMessage("InternalError", this, player.UserIDString));
@@ -1525,7 +1529,7 @@ namespace Oxide.Plugins
                         DisplayName = player.displayName,
                         Balance = initialDeposit
                     };
-                    _dataPlayerRb.Add(player.userID, playerData);
+                    _dataPlayerRb.Add(player.userID.Get(), playerData);
                 }
             }
             else
