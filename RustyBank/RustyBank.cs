@@ -30,6 +30,10 @@
  * 1.3.0
  *    RUSTアップデートに対応(2024/7)
  *       プレイヤーIDの取得ロジックの変更に対応
+ *
+ * 1.4.0
+ *    RUSTアップデートに対応(2026/6)
+ *       ConsoleSystem.ArgがStringViewになったことによる対応
  * 
  */
 
@@ -49,7 +53,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Rusty Bank", "babu77", "1.3.0")]
+    [Info("Rusty Bank", "babu77", "1.4.0")]
     [Description("This is a simple plugin that adds banking functionality.")]
     public class RustyBank : RustPlugin
     {
@@ -1572,7 +1576,7 @@ namespace Oxide.Plugins
 
             var amount = Convert.ToInt32(args.Args[1]);
 
-            switch (mode)
+            switch (mode.ToString())
             {
                 case "t":
                     AddExtensionFromHand(player, amount);
@@ -1597,7 +1601,7 @@ namespace Oxide.Plugins
             
             var mode = args.Args[0];
 
-            CreateDaWPanel(player, mode);
+            CreateDaWPanel(player, mode.ToString());
         }
 
         [ConsoleCommand("rustybank.dw")]
@@ -1613,7 +1617,7 @@ namespace Oxide.Plugins
             var mode = arg.Args[0];
             var amount = 0;
 
-            if (!int.TryParse(arg.Args[1], out amount))
+            if (!int.TryParse(arg.Args[1].ToString(), out amount))
             {
                 CreateFadeUI(player, lang.GetMessage("NumericError", this, player.UserIDString));
                 return;
@@ -1625,7 +1629,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            CreateTransactionConfirmationUI(player, mode, amount);
+            CreateTransactionConfirmationUI(player, mode.ToString(), amount);
         }
 
         [ConsoleCommand("rustybank.adminui")]
