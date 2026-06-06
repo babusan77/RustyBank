@@ -40,7 +40,7 @@
  *       ConsoleSystem.ArgがStringViewになったことによる対応の対応漏れの修正
  */
 
-#define DEBUG
+// #define DEBUG
 
 using System;
 using System.Collections;
