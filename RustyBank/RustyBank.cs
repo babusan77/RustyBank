@@ -34,8 +34,13 @@
  * 1.4.0
  *    RUSTアップデートに対応(2026/6)
  *       ConsoleSystem.ArgがStringViewになったことによる対応
- * 
+ *
+ * 1.4.1
+ *    RUSTアップデートに対応(2026/6)
+ *       ConsoleSystem.ArgがStringViewになったことによる対応の対応漏れの修正
  */
+
+#define DEBUG
 
 using System;
 using System.Collections;
@@ -53,7 +58,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Rusty Bank", "babu77", "1.4.0")]
+    [Info("Rusty Bank", "babu77", "1.4.1")]
     [Description("This is a simple plugin that adds banking functionality.")]
     public class RustyBank : RustPlugin
     {
@@ -1325,9 +1330,15 @@ namespace Oxide.Plugins
         private void RustyBankDepositCommand(ConsoleSystem.Arg args)
         {
             var player = args.Connection.player as BasePlayer;
+#if DEBUG
+            Puts($"Deposit: {player?.displayName ?? "Unknown Player"}");
+#endif
             try
             {
-                var depositAmount = Convert.ToDouble(args.Args[0]);
+#if DEBUG
+                Puts(args.Args[0].ToString());
+#endif
+                var depositAmount = Convert.ToDouble(args.Args[0].ToString());
 
                 var fees = GetFees(player);
 
@@ -1405,9 +1416,9 @@ namespace Oxide.Plugins
                     }
                 }
             }
-            catch
+            catch(Exception e)
             {
-                //
+                Puts(e);
             }
             //UpdateSubUi(player);
             CommandBankUiFromDW(player);
@@ -1422,9 +1433,16 @@ namespace Oxide.Plugins
         private void RustyBankWithdrawCommand(ConsoleSystem.Arg args)
         {
             var player = args.Connection.player as BasePlayer;
+#if DEBUG
+            Puts($"Withdraw: {player?.displayName ?? "Unknown Player"}");
+#endif
             try
             {
-                var withdrawAmount = Convert.ToDouble(args.Args[0]);
+                var withdrawAmount = Convert.ToDouble(args.Args[0].ToString());
+                
+#if DEBUG
+                Puts($"WithdrawAmount: {withdrawAmount}");
+#endif
 
                 var fees = GetFees(player);
 
@@ -1490,9 +1508,9 @@ namespace Oxide.Plugins
                     }
                 }
             }
-            catch
+            catch(Exception e)
             {
-                //
+                Puts(e);
             }
             //UpdateSubUi(player);
             CommandBankUiFromDW(player);
@@ -1502,6 +1520,10 @@ namespace Oxide.Plugins
         private void RustyBankCreateAccountCommand(ConsoleSystem.Arg args)
         {
             var player = args.Connection.player as BasePlayer;
+            
+#if DEBUG
+            Puts($"CreateAccount: {player?.displayName ?? "Unknown Player"}");
+#endif
 
             double initialDeposit = 500;
             //Economics残高チェック
@@ -1558,7 +1580,7 @@ namespace Oxide.Plugins
         {
             var player = args.Connection.player as BasePlayer;
             
-            var itemCounter = Convert.ToInt32(args.Args[0]);
+            var itemCounter = Convert.ToInt32(args.Args[0].ToString());
 
             FuncDestroyExtensionUi(player, itemCounter);
             
@@ -1572,11 +1594,11 @@ namespace Oxide.Plugins
 
             if (args.Args.Length <= 0) return;
 
-            var mode = args.Args[0];
+            var mode = args.Args[0].ToString();
 
-            var amount = Convert.ToInt32(args.Args[1]);
+            var amount = Convert.ToInt32(args.Args[1].ToString());
 
-            switch (mode.ToString())
+            switch (mode)
             {
                 case "t":
                     AddExtensionFromHand(player, amount);
@@ -1599,9 +1621,9 @@ namespace Oxide.Plugins
 
             if (args.Args.Length <= 0) return;
             
-            var mode = args.Args[0];
+            var mode = args.Args[0].ToString();
 
-            CreateDaWPanel(player, mode.ToString());
+            CreateDaWPanel(player, mode);
         }
 
         [ConsoleCommand("rustybank.dw")]
@@ -1614,7 +1636,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            var mode = arg.Args[0];
+            var mode = arg.Args[0].ToString();
             var amount = 0;
 
             if (!int.TryParse(arg.Args[1].ToString(), out amount))
@@ -1629,7 +1651,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            CreateTransactionConfirmationUI(player, mode.ToString(), amount);
+            CreateTransactionConfirmationUI(player, mode, amount);
         }
 
         [ConsoleCommand("rustybank.adminui")]
